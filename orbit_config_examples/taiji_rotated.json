@@ -1,0 +1,7 @@
+{
+  "base": "taiji-accurate",
+  "orbit_dir": "path/to/MicroSateOrbitEclipticTCB",
+  "orbit_dt": 600.0,
+  "time_offset": 0.0,
+  "rotate_z_deg": 30.0
+}
