@@ -1,0 +1,7 @@
+{
+  "base": "tianqin-toy",
+  "orbit_dt": 600.0,
+  "geocentric_radius": 100000000.0,
+  "normal_lon_deg": 120.5,
+  "normal_lat_deg": -4.7
+}

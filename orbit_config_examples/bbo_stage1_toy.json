@@ -1,0 +1,9 @@
+{
+  "base": "bbo-stage1-toy",
+  "orbit_dt": 600.0,
+  "armlength_m": 50000000.0,
+  "center_radius": 149600000000.0,
+  "center_phase_deg": -20.0,
+  "cartwheel_period": 31558149.763545603,
+  "plane_inclination_deg": 60.0
+}

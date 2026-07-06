@@ -1,0 +1,6 @@
+{
+  "base": "esa",
+  "orbit_dt": 600.0,
+  "time_offset": 1234567.0,
+  "force_sampled": true
+}
