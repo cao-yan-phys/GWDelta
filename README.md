@@ -1,6 +1,8 @@
 # GWDelta
 
-<img src="docs/figures/logo.png" alt="Taiji TDI response comparison" style="zoom: 25%;" />
+<p align="center">
+  <img src="docs/figures/logo.png" alt="GWDelta logo" width="300">
+</p>
 
 GWDelta is a toolkit for fast response calculations for space-based gravitational-wave detectors, focusing on LISA-like triangular constellations.
 
@@ -28,21 +30,21 @@ The example below compares a precessing quasi-circular SMBHB waveform generated 
 
 GWDelta can build FastLISAResponse-compatible orbit objects from the following `base` options:
 
-| `base` | Detector/orbit | Source |
-| --- | --- | --- |
-| `taiji-accurate` | Taiji realistic orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) |
-| `taiji-triangle` | Taiji equal-arm orbit | Samples from [`TriangleDataCenter/Triangle-Simulator/OrbitData/TaijiEqualArmOrbit`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/TaijiEqualArmOrbit) |
-| `esa` | LISA realistic orbit | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
-| `equal-armlength` | LISA equal-arm orbit | `EqualArmlengthOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
-| `bbo-stage1-toy` | BBO toy orbit | Internal rigid heliocentric Stage-I toy model |
-| `tianqin-toy` | TianQin toy orbit | Internal rigid geocentric toy model |
-| `file` | User orbit | Sampled NPZ/CSV orbit data |
+| `base`            | Detector/orbit        | Source                                                       |
+| ----------------- | --------------------- | ------------------------------------------------------------ |
+| `taiji-accurate`  | Taiji realistic orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) |
+| `taiji-triangle`  | Taiji equal-arm orbit | Samples from [`TriangleDataCenter/Triangle-Simulator/OrbitData/TaijiEqualArmOrbit`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/TaijiEqualArmOrbit) |
+| `esa`             | LISA realistic orbit  | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
+| `equal-armlength` | LISA equal-arm orbit  | `EqualArmlengthOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
+| `bbo-stage1-toy`  | BBO toy orbit         | Internal rigid heliocentric Stage-I toy model                |
+| `tianqin-toy`     | TianQin toy orbit     | Internal rigid geocentric toy model                          |
+| `file`            | User orbit            | Sampled NPZ/CSV orbit data                                   |
 
 The BBO and TianQin entries are response-test toy orbits, not mission ephemerides.
 
 Taiji orbit files are not bundled. Download the data from the links above and pass the directory through `orbit_dir`, or set `GWDELTA_TAIJI_ACCURATE_ORBIT_DIR`, `GWDELTA_TAIJI_TRIANGLE_ORBIT_DIR`, or `GWDELTA_ORBIT_DATA_DIR`.
 
-**Warning:** The Triangle-Simulator Taiji orbit files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
+**Warning:** The Taiji orbit files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
 
 Orbit parameters can be changed through `make_orbits_from_spec`:
 
@@ -80,8 +82,8 @@ Project phase defaults align LISA/equal-arm orbits to a center phase of `-20 deg
 
 Family-specific defaults:
 
-- `taiji-accurate`: samples `MicroSateOrbit.hdf5`; arm length defaults to the median file light time times `c`; see [arXiv:1807.09495](https://arxiv.org/abs/1807.09495).
-- `taiji-triangle`: samples Triangle-Simulator equal-arm files; nominal arm length is `3.0e9 m`; see [arXiv:1707.09127](https://arxiv.org/abs/1707.09127).
+- `taiji-accurate`: arm length defaults to the median file light time times `c`.
+- `taiji-triangle`: nominal arm length is `3.0e9 m`.
 - `bbo-stage1-toy`: `armlength_m=5.0e7`, guiding-center radius `1 AU`, center phase `-20 deg`, cartwheel period one sidereal year, cartwheel phase `90 deg`, detector-plane normal inclination `60 deg`; see [arXiv:gr-qc/0506015](https://arxiv.org/abs/gr-qc/0506015).
 - `tianqin-toy`: geocentric radius `1.0e8 m`, arm length `sqrt(3) * 1.0e8 m`, guiding-center radius `1 AU`, fixed plane normal at longitude `120.5 deg` and latitude `-4.7 deg`; see [arXiv:2012.03260](https://arxiv.org/abs/2012.03260).
 
