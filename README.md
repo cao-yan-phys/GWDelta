@@ -6,15 +6,15 @@
 
 GWDelta is a toolkit for fast response calculations for space-based gravitational-wave detectors, focusing on LISA-like triangular constellations.
 
-The response code can run on CPU or on a CUDA-enabled `fastlisaresponse` / `lisatools` backend through `force_backend="cuda12x"`. Waveform-side helper paths can also use GPU acceleration where CuPy or Numba CUDA is available.
+The response code can run on CPU or on a CUDA-enabled modified `fastlisaresponse` backend with `lisatools` through `force_backend="cuda12x"`. GWDelta does not bundle waveform generators; example waveform helpers kept outside `src/gwdelta` may use CuPy or Numba CUDA when available.
 
 ## Dependencies
 
-The time-domain response path uses installed `fastlisaresponse` and `lisatools` backends. `fastlisaresponse` provides the `pyResponseTDI` engine; `lisatools` provides the orbit interface expected by that engine and the built-in LISA `esa` / `equal-armlength` orbit classes.
+The time-domain response path is tested with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu). The fork contains the FastLISAResponse changes used by GWDelta. `fastlisaresponse` provides the `pyResponseTDI` engine; `lisatools` provides the orbit interface expected by that engine and the built-in LISA `esa` / `equal-armlength` orbit classes.
 
-## Example
+## Example 1
 
-The example below compares a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` and null displacement memory (including all $l=2$ modes computed perturbatively) against three Taiji response calculations:
+The example below compares a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` and perturbative displacement memory (including all $l=2$ modes computed perturbatively) against three Taiji response calculations:
 
 - second-generation $A,E$ channels with a realistic Taiji orbit;
 - second-generation $A,E$ channels with a static equal-arm orbit;
@@ -24,7 +24,24 @@ The example below compares a precessing quasi-circular SMBHB waveform generated 
 
 
 
-<img src="docs/figures/taiji_ae_time_frequency.png" alt="Taiji A/E time-frequency map" style="zoom: 25%;" />
+<img src="docs/figures/taiji_ae_time_frequency.png" alt="Taiji A/E time-frequency map" width="450">
+
+## Example 2
+
+The example below compares a one-year eccentric nearly-equal-mass compact binary waveform generated with analytic kludge (AK) and PN models against two Taiji response calculations:
+
+- second-generation $A,E$ channels with a realistic Taiji orbit;
+- second-generation $A,E$ channels with a simple equal-arm orbit.
+
+Binary masses: $m_1=50\,M_\odot$, $m_2=30\,M_\odot$; symmetric mass ratio: $\nu=0.234375$; luminosity distance: $100\,\mathrm{Mpc}$; eccentricity: $e_t=0.1$; sampling: `dt=8 s`, `years=1`; frequency markers: $\text{f22\_start}=5.000\,\mathrm{mHz}$ and $\text{f22\_end}\simeq 5.025\,\mathrm{mHz}$.
+
+In the PN model, the initial 1PN QK parameters are aligned to the initial radial mean motion, eccentricity, eccentric anomaly, and orbital phase in the AK model. The secular evolution of $x(t)$ and $e_t(t)$ uses the 3PN equations. The waveform amplitude includes only the Newtonian quadrupolar $h_{20}$ and $h_{2,\pm2}$ modes.
+
+![One-year AK Taiji response comparison](docs/figures/taiji_ak_tdi2_1yr_demo.png)
+
+
+
+![One-year AK Taiji A-channel zoom](docs/figures/taiji_ak_tdi2_1yr_demo_A_zoom.png)
 
 ## Orbit Models and Data Sources
 
@@ -45,6 +62,38 @@ The BBO and TianQin entries are response-test toy orbits, not mission ephemeride
 Taiji orbit files are not bundled. Download the data from the links above and pass the directory through `orbit_dir`, or set `GWDELTA_TAIJI_ACCURATE_ORBIT_DIR`, `GWDELTA_TAIJI_TRIANGLE_ORBIT_DIR`, or `GWDELTA_ORBIT_DATA_DIR`.
 
 **Warning:** The Taiji orbit files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
+
+GWDelta can also generate simple equal-arm orbits directly from a reference triangle in the realistic Taiji orbit. First build the realistic Taiji orbit and relabel it to the standard TDI convention, then interpolate the three spacecraft positions at `reference_time_s`.
+
+For short-duration analytic response checks, use the static helper. It builds one fixed equal-arm triangle with the same reference center, sets the effective arm length to the median reference arm length, and fits the analytic triangle orientation:
+
+```python
+from gwdelta import make_static_equal_arm_orbits_from_reference
+
+simple_orbits, match = make_static_equal_arm_orbits_from_reference(
+    reference_positions_m,
+    duration_s=duration_s,
+    reference_time_s=reference_time_s,
+    center_at_reference=True,
+    force_backend="cuda12x",
+)
+```
+
+For year-long time-domain comparisons, use the dynamic helper. It matches the center, arm length, and analytic triangle orientation at `reference_time_s`, then lets the simple equal-arm Taiji-like orbit evolve with the same sidereal-year guiding-center phase:
+
+```python
+from gwdelta import make_dynamic_equal_arm_orbits_from_reference
+
+simple_orbits, match = make_dynamic_equal_arm_orbits_from_reference(
+    reference_positions_m,
+    duration_s=duration_s,
+    reference_time_s=reference_time_s,
+    orbit_dt=600.0,
+    force_backend="cuda12x",
+)
+```
+
+The returned `match` records the reference positions, reference center, effective arm length, orientation parameters, guiding-center radius/phase, sampling cadence, and fit residual.
 
 Orbit parameters can be changed through `make_orbits_from_spec`:
 

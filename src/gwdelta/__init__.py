@@ -1,8 +1,6 @@
 """GWDelta response utilities for LISA-like triangular detectors."""
 
 from .array_backend import ArrayBackend, select_array_backend
-from .ak_tdi_spectrum import AKAESpectrumCalculator, AESpectrum
-from .cupy_ak_waveforms import sample_ak_polarizations_fourier_raw_cuda
 from .cuda_runtime import ensure_cuda_dll_directories
 from .fastlisa import FastLISAResponseTDI, TDIResult
 from .tdi_combinations import (
@@ -36,7 +34,6 @@ from .fd_response import (
     x_combinations_for_tdi,
     xyz_from_link_combinations,
 )
-from .numba_waveforms import sample_accurate_from_solution_cuda, sample_fixed_pn_qk_cuda
 from .orbits import (
     OrbitArrays,
     OrbitSpec,
@@ -58,10 +55,13 @@ from .orbits import (
 from .analytic_orbits import (
     RAW_TO_STANDARD_LTT,
     RAW_TO_STANDARD_SC,
+    DynamicOrbitMatch,
     StaticOrbitMatch,
+    analytic_relative_position_series,
     analytic_relative_positions,
     analytic_ssb_rotation_matrix,
     fit_analytic_phi0_to_reference,
+    make_dynamic_equal_arm_orbits_from_reference,
     make_standard_convention_orbits,
     make_static_equal_arm_orbits_from_reference,
     median_arm_length,
@@ -69,13 +69,10 @@ from .analytic_orbits import (
     relabel_raw_spacecraft_to_standard,
     standard_detector_frame_positions,
 )
-from .units import PhysicalScale, distance_to_meters, make_physical_scale
-from .waveforms import WaveformSamples, sample_ak_hplus_fourier, sample_ak_polarizations_fourier
+from .units import PhysicalScale, WaveformSamples, distance_to_meters, make_physical_scale
 
 __all__ = [
     "ArrayBackend",
-    "AKAESpectrumCalculator",
-    "AESpectrum",
     "FastLISAResponseTDI",
     "C_SI",
     "DEFAULT_LINKS",
@@ -88,6 +85,7 @@ __all__ = [
     "OrbitSpec",
     "SampledOrbits",
     "StaticTaijiFDResponse",
+    "DynamicOrbitMatch",
     "StaticOrbitMatch",
     "TAIJI_ARM_M",
     "TDIResult",
@@ -111,6 +109,7 @@ __all__ = [
     "make_physical_scale",
     "make_orbits_from_config",
     "make_orbits_from_spec",
+    "make_dynamic_equal_arm_orbits_from_reference",
     "make_standard_convention_orbits",
     "make_taiji_accurate_orbits",
     "make_taiji_triangle_orbits",
@@ -118,6 +117,7 @@ __all__ = [
     "make_time_shifted_orbits",
     "make_static_equal_arm_orbits_from_reference",
     "median_arm_length",
+    "analytic_relative_position_series",
     "analytic_relative_positions",
     "analytic_ssb_rotation_matrix",
     "receivers_emitters",
@@ -127,11 +127,6 @@ __all__ = [
     "RAW_TO_STANDARD_LTT",
     "RAW_TO_STANDARD_SC",
     "fit_analytic_phi0_to_reference",
-    "sample_ak_hplus_fourier",
-    "sample_ak_polarizations_fourier",
-    "sample_ak_polarizations_fourier_raw_cuda",
-    "sample_accurate_from_solution_cuda",
-    "sample_fixed_pn_qk_cuda",
     "select_array_backend",
     "resolve_tdi_combinations",
     "sky_basis",

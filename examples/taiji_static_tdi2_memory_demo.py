@@ -393,10 +393,10 @@ def compare_spectra(
     a_fd_display = (a_fd - a_fd_no_memory) + cleanup_gate * a_fd_no_memory
     e_fd_display = (e_fd - e_fd_no_memory) + cleanup_gate * e_fd_no_memory
 
-    amp = np.maximum(np.abs(a_static_f), np.abs(e_static_f))
+    amp = np.maximum(np.abs(a_realistic_f), np.abs(e_realistic_f))
     floor = args.relative_amp_floor * float(np.max(amp))
     mask = (freqs >= args.compare_fmin) & (freqs <= args.compare_fmax) & (amp > floor)
-    mask &= np.isfinite(a_fd) & np.isfinite(e_fd) & np.isfinite(a_static_f) & np.isfinite(e_static_f)
+    mask &= np.isfinite(a_fd) & np.isfinite(e_fd) & np.isfinite(a_realistic_f) & np.isfinite(e_realistic_f)
     if not np.any(mask):
         raise ValueError("comparison mask is empty")
 
@@ -415,6 +415,11 @@ def compare_spectra(
         "tdi_spectrum_method": "FFT(windowed time-domain A/E)",
         "source_memory_spectrum_method": "FFT(time derivative)/(i 2 pi f), f=0 set to 0",
         "oscillatory_leakage_cleanup": cleanup_summary,
+        "fd_vs_td_reference": "realistic Taiji orbit TD",
+        "realistic_A_fd_vs_td_relative_l2": rel_l2(a_fd, a_realistic_f, mask),
+        "realistic_E_fd_vs_td_relative_l2": rel_l2(e_fd, e_realistic_f, mask),
+        "realistic_A_fd_vs_td_overlap_abs": overlap_abs(a_fd, a_realistic_f, mask),
+        "realistic_E_fd_vs_td_overlap_abs": overlap_abs(e_fd, e_realistic_f, mask),
         "static_A_fd_vs_td_relative_l2": rel_l2(a_fd, a_static_f, mask),
         "static_E_fd_vs_td_relative_l2": rel_l2(e_fd, e_static_f, mask),
         "static_A_fd_vs_td_overlap_abs": overlap_abs(a_fd, a_static_f, mask),
@@ -496,7 +501,7 @@ def plot_outputs(
     axes[0, 0].plot(t / 3600.0, h_cross, lw=0.9, label=r"$h_\times$")
     axes[0, 0].plot(t / 3600.0, h_plus_no_memory, "k--", lw=1.0, label=r"$h_+^{\rm no\,mem}$")
     axes[0, 0].plot(t / 3600.0, h_cross_no_memory, ":", color="0.15", lw=1.0, label=r"$h_\times^{\rm no\,mem}$")
-    axes[0, 0].set_xlabel(r"$t$ [hr]")
+    axes[0, 0].set_xlabel(r"$t$ [h]")
     axes[0, 0].set_ylabel(r"$h(t)$")
     axes[0, 0].grid(alpha=0.25)
     axes[0, 0].legend(loc="best")
@@ -544,11 +549,11 @@ def plot_outputs(
         ax.grid(alpha=0.25)
         ax.legend(loc="best", fontsize=8)
 
-    rel_a = np.abs(spectra["A_static_fd"] - spectra["A_static_td"]) / np.maximum(
-        np.abs(spectra["A_static_td"]), eps
+    rel_a = np.abs(spectra["A_static_fd"] - spectra["A_realistic_td"]) / np.maximum(
+        np.abs(spectra["A_realistic_td"]), eps
     )
-    rel_e = np.abs(spectra["E_static_fd"] - spectra["E_static_td"]) / np.maximum(
-        np.abs(spectra["E_static_td"]), eps
+    rel_e = np.abs(spectra["E_static_fd"] - spectra["E_realistic_td"]) / np.maximum(
+        np.abs(spectra["E_realistic_td"]), eps
     )
     axes[1, 1].loglog(freqs[mask], rel_a[mask], lw=1.0, label=r"$\tilde{A}$")
     axes[1, 1].loglog(freqs[mask], rel_e[mask], lw=1.0, label=r"$\tilde{E}$")
