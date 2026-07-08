@@ -5,8 +5,6 @@ from typing import Any
 
 import numpy as np
 
-from .waveforms import WaveformSamples
-
 G_SI = 6.67430e-11
 C_SI = 299792458.0
 M_SUN_SI = 1.98847e30
@@ -21,6 +19,22 @@ DISTANCE_UNITS_SI = {
     "mpc": 1.0e6 * PC_SI,
     "gpc": 1.0e9 * PC_SI,
 }
+
+
+@dataclass(frozen=True)
+class WaveformSamples:
+    t: Any
+    h_plus: Any
+    h_cross: Any | None
+    backend: Any
+    metadata: dict[str, Any]
+
+    def as_numpy(self) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+        return (
+            np.asarray(self.t),
+            np.asarray(self.h_plus),
+            None if self.h_cross is None else np.asarray(self.h_cross),
+        )
 
 
 def distance_to_meters(value: float, unit: str = "m") -> float:
