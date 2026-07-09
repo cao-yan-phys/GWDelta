@@ -106,9 +106,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--waveform-theta", type=float, default=0.7)
     parser.add_argument("--integer-pn-factor", type=float, default=1.0)
     parser.add_argument("--boost-factor", type=float, default=1.0)
+    parser.add_argument("--ak-phase-model", choices=["pn-taylor", "notebook"], default="pn-taylor")
     parser.add_argument("--pn-global-sign", type=float, default=-1.0)
     parser.add_argument("--spectrum-window-alpha", type=float, default=0.1)
-    parser.add_argument("--zoom-time-days", type=float, default=0.005)
+    parser.add_argument("--zoom-time-days", type=float, default=0.01)
     parser.add_argument("--zoom-frequency-bins", type=int, default=6)
     parser.add_argument("--max-plot-points", type=int, default=20000)
     parser.add_argument("--save-npz", action="store_true")
@@ -202,22 +203,115 @@ def component_masses_solar(total_mass_solar: float, nu: float) -> tuple[float, f
     return float(m1), float(m2)
 
 
-def ak_f22_frequency_summary(params: NotebookParameters, scale, t_code_end: float) -> dict[str, float]:
+def _pn_directional_derivative(func, x: float, e_t: float, dx_dt: float, de_dt: float, step_t: float = 1.0e6) -> float:
+    return float(
+        (
+            func(x + dx_dt * step_t, e_t + de_dt * step_t)
+            - func(x - dx_dt * step_t, e_t - de_dt * step_t)
+        )
+        / (2.0 * step_t)
+    )
+
+
+def _pn_radial_mean_motion(x: float, e_t: float, total_mass: float) -> float:
+    k = 3.0 * x / (1.0 - e_t**2)
+    omega = x**1.5 / total_mass
+    return float(omega / (1.0 + k))
+
+
+def _pn_precession_rate(x: float, e_t: float, total_mass: float) -> float:
+    omega = x**1.5 / total_mass
+    return float(omega - _pn_radial_mean_motion(x, e_t, total_mass))
+
+
+def make_ak_phase_coefficients(params: NotebookParameters, phase_model: str) -> dict[str, float | str]:
     init = initial_state(params)
     ak = initial_ak_elements(params)
-    precession_rate = params.integer_pn_factor * _qk_periastron_precession_rate(init, params)
-    omega_dot = _omega_dot_newtonian(ak.mean_motion, ak.eccentricity, params.nu, params.boost_factor)
-    omega_ddot_phase = _notebook_omega_ddot_phase_factor(init, params)
-    omega_phi_start = init.omega0 + precession_rate
-    omega_phi_end = omega_phi_start + omega_dot * float(t_code_end) + 0.5 * omega_ddot_phase * float(t_code_end) ** 2
+    if phase_model == "notebook":
+        return {
+            "phase_model": "notebook",
+            "omega0": float(init.omega0),
+            "omega_dot": float(_omega_dot_newtonian(ak.mean_motion, ak.eccentricity, params.nu, params.boost_factor)),
+            "omega_ddot_phase": float(_notebook_omega_ddot_phase_factor(init, params)),
+            "gamma_dot": float(params.integer_pn_factor * _qk_periastron_precession_rate(init, params)),
+            "gamma_ddot": 0.0,
+            "ak_mean_motion": float(ak.mean_motion),
+            "ak_eccentricity": float(ak.eccentricity),
+        }
+    if phase_model != "pn-taylor":
+        raise ValueError(f"unknown AK phase model: {phase_model!r}")
+
+    from pn_evolution import pn_dedt_b4, pn_dxdt_b1
+
+    pn_params = parameters_from_mean_motion_alignment(
+        mean_motion=init.omega0,
+        e_t=init.et0,
+        nu=params.nu,
+        total_mass=params.total_mass,
+        initial_eccentric_anomaly=init.xi0,
+        initial_orbital_phase=init.theta0,
+        distance=1.0,
+        t0=0.0,
+        global_sign=1.0,
+    )
+    x0 = float(pn_params.x0)
+    e0 = float(pn_params.e_t0)
+    dx_dt = float(pn_dxdt_b1(x0, e0, params.nu, x0_log=x0))
+    de_dt = float(pn_dedt_b4(x0, e0, params.nu, x0_log=x0))
+
+    def radial_mean_motion(x, e_t):
+        return _pn_radial_mean_motion(float(x), float(e_t), params.total_mass)
+
+    def radial_mean_motion_dot(x, e_t):
+        x_value = float(x)
+        e_value = float(e_t)
+        dx_value = float(pn_dxdt_b1(x_value, e_value, params.nu, x0_log=x0))
+        de_value = float(pn_dedt_b4(x_value, e_value, params.nu, x0_log=x0))
+        return _pn_directional_derivative(radial_mean_motion, x_value, e_value, dx_value, de_value)
+
+    def precession_rate(x, e_t):
+        return _pn_precession_rate(float(x), float(e_t), params.total_mass)
+
+    omega_dot = _pn_directional_derivative(radial_mean_motion, x0, e0, dx_dt, de_dt)
+    omega_ddot_phase = _pn_directional_derivative(radial_mean_motion_dot, x0, e0, dx_dt, de_dt)
+    gamma_dot = precession_rate(x0, e0)
+    gamma_ddot = _pn_directional_derivative(precession_rate, x0, e0, dx_dt, de_dt)
     return {
-        "radial_hz": float(init.omega0 / (2.0 * np.pi * scale.time_unit_s)),
+        "phase_model": "pn-taylor",
+        "omega0": float(init.omega0),
+        "omega_dot": float(omega_dot),
+        "omega_ddot_phase": float(omega_ddot_phase),
+        "gamma_dot": float(gamma_dot),
+        "gamma_ddot": float(gamma_ddot),
+        "ak_mean_motion": float(ak.mean_motion),
+        "ak_eccentricity": float(ak.eccentricity),
+        "pn_x0": x0,
+        "pn_e_t0": e0,
+        "pn_dx_dt0": dx_dt,
+        "pn_de_dt0": de_dt,
+    }
+
+
+def ak_f22_frequency_summary(params: NotebookParameters, scale, t_code_end: float, phase_coefficients: dict[str, float | str]) -> dict[str, float | str]:
+    omega0 = float(phase_coefficients["omega0"])
+    omega_dot = float(phase_coefficients["omega_dot"])
+    omega_ddot_phase = float(phase_coefficients["omega_ddot_phase"])
+    gamma_dot = float(phase_coefficients["gamma_dot"])
+    gamma_ddot = float(phase_coefficients["gamma_ddot"])
+    t_end = float(t_code_end)
+    omega_phi_start = omega0 + gamma_dot
+    omega_phi_end = omega_phi_start + (omega_dot + gamma_ddot) * t_end + 0.5 * omega_ddot_phase * t_end**2
+    return {
+        "phase_model": str(phase_coefficients["phase_model"]),
+        "radial_hz": float(omega0 / (2.0 * np.pi * scale.time_unit_s)),
         "orbital_hz": float(omega_phi_start / (2.0 * np.pi * scale.time_unit_s)),
         "f22_hz": float(omega_phi_start / (np.pi * scale.time_unit_s)),
         "f22_start_hz": float(omega_phi_start / (np.pi * scale.time_unit_s)),
         "f22_end_hz": float(omega_phi_end / (np.pi * scale.time_unit_s)),
         "omega_dot_code": float(omega_dot),
         "omega_ddot_phase_code": float(omega_ddot_phase),
+        "gamma_dot_code": float(gamma_dot),
+        "gamma_ddot_code": float(gamma_ddot),
     }
 
 
@@ -230,10 +324,19 @@ def generate_ak_polarizations(t_seconds: np.ndarray, args: argparse.Namespace):
         code_total_mass=params.total_mass,
     )
     t_code = t_seconds / scale.time_unit_s
+    phase_coefficients = make_ak_phase_coefficients(params, args.ak_phase_model)
     if args.response_backend == "cuda12x":
         from benchmark_waveforms.cupy_ak_waveforms import sample_ak_polarizations_fourier_raw_cuda
 
-        samples = sample_ak_polarizations_fourier_raw_cuda(t_code, params, n_max=args.ak_n_max)
+        samples = sample_ak_polarizations_fourier_raw_cuda(
+            t_code,
+            params,
+            n_max=args.ak_n_max,
+            omega_dot=float(phase_coefficients["omega_dot"]),
+            omega_ddot_phase=float(phase_coefficients["omega_ddot_phase"]),
+            gamma_dot=float(phase_coefficients["gamma_dot"]),
+            gamma_ddot=float(phase_coefficients["gamma_ddot"]),
+        )
         h_plus = samples.h_plus * scale.strain_scale
         h_cross = samples.h_cross * scale.strain_scale
         sample_backend = "cupy_raw"
@@ -241,18 +344,30 @@ def generate_ak_polarizations(t_seconds: np.ndarray, args: argparse.Namespace):
         from benchmark_waveforms.waveforms import sample_ak_polarizations_fourier
 
         backend = select_array_backend(force="cpu")
-        samples = sample_ak_polarizations_fourier(t_code, params, n_max=args.ak_n_max, backend=backend)
+        samples = sample_ak_polarizations_fourier(
+            t_code,
+            params,
+            n_max=args.ak_n_max,
+            backend=backend,
+            omega_dot=float(phase_coefficients["omega_dot"]),
+            omega_ddot_phase=float(phase_coefficients["omega_ddot_phase"]),
+            gamma_dot=float(phase_coefficients["gamma_dot"]),
+            gamma_ddot=float(phase_coefficients["gamma_ddot"]),
+        )
         h_plus = np.asarray(samples.h_plus, dtype=float) * scale.strain_scale
         h_cross = np.asarray(samples.h_cross, dtype=float) * scale.strain_scale
         sample_backend = "numpy"
 
-    frequencies = ak_f22_frequency_summary(params, scale, float(t_code[-1]))
+    frequencies = ak_f22_frequency_summary(params, scale, float(t_code[-1]), phase_coefficients)
     m1_solar, m2_solar = component_masses_solar(args.total_mass_solar, args.nu)
     meta = {
         "model": "external_benchmark_AK_fourier",
+        "phase_model": args.ak_phase_model,
         "sample_backend": sample_backend,
         "ak_n_max": int(args.ak_n_max),
         "params": asdict(params),
+        "phase_coefficients": phase_coefficients,
+        "generator_metadata": dict(samples.metadata),
         "scale": {
             "time_unit_s": float(scale.time_unit_s),
             "strain_scale": float(scale.strain_scale),
@@ -500,8 +615,8 @@ def plot_outputs(
     ax_a_freq = fig.add_subplot(gs[2, 0])
     ax_e_freq = fig.add_subplot(gs[2, 1])
 
-    ax_wave.plot(t_seconds[h_idx] / SIDEREAL_YEAR_S, h_plus_plot, lw=0.8, label=r"$h_+$")
-    ax_wave.plot(t_seconds[h_idx] / SIDEREAL_YEAR_S, h_cross_plot, lw=0.8, label=r"$h_\times$")
+    ax_wave.plot(t_seconds[h_idx] / SIDEREAL_YEAR_S, h_plus_plot, lw=0.8, label=r"$h_+$ (AK)")
+    ax_wave.plot(t_seconds[h_idx] / SIDEREAL_YEAR_S, h_cross_plot, lw=0.8, label=r"$h_\times$ (AK)")
     ax_wave.set_xlabel(r"$t$ [yr]")
     ax_wave.set_ylabel(r"$h(t)$")
     ax_wave.grid(alpha=0.25)
@@ -618,6 +733,7 @@ def plot_a_zoom_outputs(
         ax.set_xlabel(r"$t$ [d]")
         ax.set_ylabel(r"$A(t)$")
         ax.set_xlim(lo / 86400.0, hi / 86400.0)
+        ax.ticklabel_format(axis="x", style="plain", useOffset=False)
         ax.grid(alpha=0.25)
         ax.legend(loc="best")
 
@@ -631,8 +747,11 @@ def plot_a_zoom_outputs(
     df = float(np.median(np.diff(positive_freqs))) if positive_freqs.size > 1 else 0.0
     if f22_values and df > 0.0:
         pad = max(1, int(zoom_frequency_bins)) * df
-        fmin = max(float(positive_freqs[0]), min(f22_values) - pad)
-        fmax = max(f22_values) + pad
+        old_center = 0.5 * (min(f22_values) + max(f22_values))
+        old_half_width = 0.5 * (max(f22_values) - min(f22_values)) + pad
+        new_half_width = 2.0 * old_half_width
+        fmin = max(float(positive_freqs[0]), old_center - new_half_width)
+        fmax = old_center + new_half_width
     else:
         fmin, fmax = 1.0e-4, 1.0e-3
     freq_scale = 1.0e3
@@ -644,7 +763,7 @@ def plot_a_zoom_outputs(
         idx = limited_indices(idx, max_plot_points)
         if idx.size == 0:
             continue
-        ax_freq.semilogy(
+        ax_freq.plot(
             freq_scale * freqs[idx],
             values[idx],
             linestyle=style["ls"],
@@ -659,7 +778,7 @@ def plot_a_zoom_outputs(
     ax_freq.set_xlim(freq_scale * fmin, freq_scale * fmax)
     ax_freq.set_xlabel(r"$f$ [mHz]")
     ax_freq.set_ylabel(r"$|\tilde A(f)|$")
-    ax_freq.grid(alpha=0.25, which="both")
+    ax_freq.grid(alpha=0.25)
     ax_freq.legend(loc="best")
 
     fig.savefig(figure_path, dpi=180)
