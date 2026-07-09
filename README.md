@@ -14,7 +14,7 @@ The time-domain response path is tested with the modified `fastlisaresponse` for
 
 ## Example 1
 
-The example below compares a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` and perturbative displacement memory (including all $l=2$ modes computed perturbatively) against three Taiji response calculations:
+The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
 
 - second-generation $A,E$ channels with a realistic Taiji orbit;
 - second-generation $A,E$ channels with a static equal-arm orbit;
