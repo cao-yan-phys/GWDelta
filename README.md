@@ -22,20 +22,17 @@ The example below compares a precessing quasi-circular SMBHB waveform generated 
 
 ![Taiji TDI response comparison](docs/figures/taiji_static_tdi2_memory_demo.png)
 
-
-
-<img src="docs/figures/taiji_ae_time_frequency.png" alt="Taiji A/E time-frequency map" width="450">
+<p align="center">
+<img src="docs/figures/taiji_ae_time_frequency.png" alt="Taiji A/E time-frequency map" width="600">
+</p>
 
 ## Example 2
 
-The example below compares a one-year eccentric nearly-equal-mass compact binary waveform generated with analytic kludge (AK) and PN models against two Taiji response calculations:
+The example below compares a one-year eccentric comparable-mass compact binary waveform generated with an analytic kludge (AK) model using two Taiji orbit choices. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
 
-- second-generation $A,E$ channels with a realistic Taiji orbit;
-- second-generation $A,E$ channels with a simple equal-arm orbit.
+Binary masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$ .
 
-Binary masses: $m_1=50\,M_\odot$, $m_2=30\,M_\odot$; symmetric mass ratio: $\nu=0.234375$; luminosity distance: $100\,\mathrm{Mpc}$; eccentricity: $e_t=0.1$; sampling: `dt=8 s`, `years=1`; frequency markers: $\text{f22\_start}=5.000\,\mathrm{mHz}$ and $\text{f22\_end}\simeq 5.025\,\mathrm{mHz}$.
-
-In the PN model, the initial 1PN QK parameters are aligned to the initial radial mean motion, eccentricity, eccentric anomaly, and orbital phase in the AK model. The secular evolution of $x(t)$ and $e_t(t)$ uses the 3PN equations. The waveform amplitude includes only the Newtonian quadrupolar $h_{20}$ and $h_{2,\pm2}$ modes.
+The parameters of the AK and PN models are matched initially. In the PN model, the secular evolution of $x(t)$ and $e_t(t)$ uses the 3PN equations. The waveform amplitude includes only the Newtonian quadrupolar $h_{2,0}$ and $h_{2,\pm2}$ modes. In the AK model, the harmonic phase includes a cubic-in-time term, and the periastron-precession phase includes a quadratic-in-time term.
 
 ![One-year AK Taiji response comparison](docs/figures/taiji_ak_tdi2_1yr_demo.png)
 
@@ -65,7 +62,7 @@ Taiji orbit files are not bundled. Download the data from the links above and pa
 
 GWDelta can also generate simple equal-arm orbits directly from a reference triangle in the realistic Taiji orbit. First build the realistic Taiji orbit and relabel it to the standard TDI convention, then interpolate the three spacecraft positions at `reference_time_s`.
 
-For short-duration analytic response checks, use the static helper. It builds one fixed equal-arm triangle with the same reference center, sets the effective arm length to the median reference arm length, and fits the analytic triangle orientation:
+The static helper builds a fixed equal-arm triangle with the same reference center, sets the effective arm length to the median reference arm length, and fits the analytic triangle orientation:
 
 ```python
 from gwdelta import make_static_equal_arm_orbits_from_reference
@@ -79,7 +76,7 @@ simple_orbits, match = make_static_equal_arm_orbits_from_reference(
 )
 ```
 
-For year-long time-domain comparisons, use the dynamic helper. It matches the center, arm length, and analytic triangle orientation at `reference_time_s`, then lets the simple equal-arm Taiji-like orbit evolve with the same sidereal-year guiding-center phase:
+The dynamic helper matches the center, arm length, and analytic triangle orientation at `reference_time_s`, then lets the simple equal-arm orbit evolve with the same sidereal-year guiding-center phase:
 
 ```python
 from gwdelta import make_dynamic_equal_arm_orbits_from_reference
