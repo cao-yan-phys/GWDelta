@@ -18,6 +18,7 @@ AU_SI = 1.496e11
 DAY_SI = 86400.0
 SIDEREAL_YEAR_S = 31558149.763545603
 EARTH_MU_SI = 3.986004418e14
+LISA_NOMINAL_ARM_M = 2.5e9
 TAIJI_NOMINAL_ARM_M = 3.0e9
 TIANQIN_GEOCENTRIC_RADIUS_M = 1.0e8
 TIANQIN_NOMINAL_ARM_M = np.sqrt(3.0) * TIANQIN_GEOCENTRIC_RADIUS_M
@@ -29,6 +30,8 @@ BBO_STAGE1_PLANE_INCLINATION = np.deg2rad(60.0)
 BBO_STAGE1_CARTWHEEL_PHASE = np.deg2rad(90.0)
 LISA_TRAILING_CENTER_PHASE = np.deg2rad(-20.0)
 TAIJI_AHEAD_CENTER_PHASE = np.deg2rad(20.0)
+LISA_SIMPLE_CARTWHEEL_PHASE = np.deg2rad(90.0)
+TAIJI_SIMPLE_CARTWHEEL_PHASE = np.deg2rad(-90.0)
 DEFAULT_LINKS = [12, 23, 31, 13, 32, 21]
 DEFAULT_SC = [1, 2, 3]
 LINEAR_INTERP_TIMESTEP = 600.0
@@ -87,8 +90,9 @@ class OrbitArrays:
 class OrbitSpec:
     """User-facing specification for a FastLISAResponse orbit.
 
-    ``base`` can be one of ``esa``, ``equal-armlength``, ``taiji-triangle``,
-    ``taiji-accurate``, ``tianqin-toy``, ``bbo-stage1-toy``, or ``file``.
+    ``base`` can be one of ``esa``, ``equal-armlength``, ``lisa-simple``,
+    ``taiji-simple``, ``taiji-triangle``, ``taiji-accurate``, ``tianqin-toy``,
+    ``bbo-stage1-toy``, or ``file``.
     File orbits use ``path`` and currently support ``npz`` or headered ``csv``
     inputs.
     """
@@ -339,9 +343,9 @@ def _default_center_phase_for_base(base: str, spec: OrbitSpec) -> float | None:
         return spec.center_phase
     if not spec.use_project_phase_defaults:
         return None
-    if base in ("esa", "equal-armlength", "equal_armlength", "equal"):
+    if base in ("esa", "equal-armlength", "equal_armlength", "equal", "lisa-simple"):
         return LISA_TRAILING_CENTER_PHASE
-    if base in ("taiji-triangle", "taiji-accurate"):
+    if base in ("taiji-simple", "taiji-triangle", "taiji-accurate"):
         return TAIJI_AHEAD_CENTER_PHASE
     return None
 
@@ -680,6 +684,100 @@ def _bbo_cartwheel_triangle(
     angles = theta[:, None] + offsets[None, :]
     rel = rho * (np.cos(angles)[..., None] * u[:, None, :] + np.sin(angles)[..., None] * v[:, None, :])
     return np.asarray(center, dtype=float)[:, None, :] + rel
+
+
+def build_heliocentric_equal_arm_orbit_arrays(
+    *,
+    duration: float,
+    orbit_dt: float = LINEAR_INTERP_TIMESTEP,
+    time_offset: float = 0.0,
+    center_radius: float = AU_SI,
+    center_period: float = SIDEREAL_YEAR_S,
+    center_phase: float = 0.0,
+    arm_length: float = LISA_NOMINAL_ARM_M,
+    cartwheel_period: float = SIDEREAL_YEAR_S,
+    cartwheel_phase: float = LISA_SIMPLE_CARTWHEEL_PHASE,
+    plane_inclination: float = BBO_STAGE1_PLANE_INCLINATION,
+) -> OrbitArrays:
+    """Build a self-contained heliocentric rigid equal-arm cartwheel orbit."""
+
+    t_local = _make_local_time_grid(float(duration), float(orbit_dt))
+    t_model = t_local + float(time_offset)
+    center = _circular_heliocentric_center(
+        t_model,
+        radius=float(center_radius),
+        period=float(center_period),
+        phase=float(center_phase),
+    )
+    x = _bbo_cartwheel_triangle(
+        t_model,
+        center,
+        arm_length=float(arm_length),
+        center_period=float(center_period),
+        center_phase=float(center_phase),
+        cartwheel_period=float(cartwheel_period),
+        cartwheel_phase=float(cartwheel_phase),
+        plane_inclination=float(plane_inclination),
+    )
+    return build_orbit_arrays(t_local, x, armlength=float(arm_length))
+
+
+def build_lisa_simple_orbit_arrays(
+    *,
+    duration: float,
+    orbit_dt: float = LINEAR_INTERP_TIMESTEP,
+    time_offset: float = 0.0,
+    center_radius: float = AU_SI,
+    center_period: float = SIDEREAL_YEAR_S,
+    center_phase: float = LISA_TRAILING_CENTER_PHASE,
+    arm_length: float = LISA_NOMINAL_ARM_M,
+    cartwheel_period: float = SIDEREAL_YEAR_S,
+    cartwheel_phase: float = LISA_SIMPLE_CARTWHEEL_PHASE,
+    plane_inclination: float = BBO_STAGE1_PLANE_INCLINATION,
+) -> OrbitArrays:
+    """Build the self-contained LISA simple equal-arm cartwheel orbit."""
+
+    return build_heliocentric_equal_arm_orbit_arrays(
+        duration=duration,
+        orbit_dt=orbit_dt,
+        time_offset=time_offset,
+        center_radius=center_radius,
+        center_period=center_period,
+        center_phase=center_phase,
+        arm_length=arm_length,
+        cartwheel_period=cartwheel_period,
+        cartwheel_phase=cartwheel_phase,
+        plane_inclination=plane_inclination,
+    )
+
+
+def build_taiji_simple_orbit_arrays(
+    *,
+    duration: float,
+    orbit_dt: float = LINEAR_INTERP_TIMESTEP,
+    time_offset: float = 0.0,
+    center_radius: float = AU_SI,
+    center_period: float = SIDEREAL_YEAR_S,
+    center_phase: float = TAIJI_AHEAD_CENTER_PHASE,
+    arm_length: float = TAIJI_NOMINAL_ARM_M,
+    cartwheel_period: float = SIDEREAL_YEAR_S,
+    cartwheel_phase: float = TAIJI_SIMPLE_CARTWHEEL_PHASE,
+    plane_inclination: float = BBO_STAGE1_PLANE_INCLINATION,
+) -> OrbitArrays:
+    """Build the self-contained Taiji simple equal-arm cartwheel orbit."""
+
+    return build_heliocentric_equal_arm_orbit_arrays(
+        duration=duration,
+        orbit_dt=orbit_dt,
+        time_offset=time_offset,
+        center_radius=center_radius,
+        center_period=center_period,
+        center_phase=center_phase,
+        arm_length=arm_length,
+        cartwheel_period=cartwheel_period,
+        cartwheel_phase=cartwheel_phase,
+        plane_inclination=plane_inclination,
+    )
 
 
 def _interpolate_vector_series(t_source: np.ndarray, values: np.ndarray, t_query: np.ndarray) -> np.ndarray:
@@ -1175,6 +1273,64 @@ def build_bbo_stage1_toy_orbit_arrays(
     return build_orbit_arrays(t_local, x, armlength=float(arm_length))
 
 
+def make_lisa_simple_orbits(
+    *,
+    duration: float,
+    orbit_dt: float = LINEAR_INTERP_TIMESTEP,
+    time_offset: float = 0.0,
+    center_radius: float = AU_SI,
+    center_period: float = SIDEREAL_YEAR_S,
+    center_phase: float = LISA_TRAILING_CENTER_PHASE,
+    arm_length: float = LISA_NOMINAL_ARM_M,
+    cartwheel_period: float = SIDEREAL_YEAR_S,
+    cartwheel_phase: float = LISA_SIMPLE_CARTWHEEL_PHASE,
+    plane_inclination: float = BBO_STAGE1_PLANE_INCLINATION,
+    force_backend: str | None = None,
+) -> SampledOrbits:
+    arrays = build_lisa_simple_orbit_arrays(
+        duration=duration,
+        orbit_dt=orbit_dt,
+        time_offset=time_offset,
+        center_radius=center_radius,
+        center_period=center_period,
+        center_phase=center_phase,
+        arm_length=arm_length,
+        cartwheel_period=cartwheel_period,
+        cartwheel_phase=cartwheel_phase,
+        plane_inclination=plane_inclination,
+    )
+    return _sampled_from_arrays(arrays, force_backend=force_backend)
+
+
+def make_taiji_simple_orbits(
+    *,
+    duration: float,
+    orbit_dt: float = LINEAR_INTERP_TIMESTEP,
+    time_offset: float = 0.0,
+    center_radius: float = AU_SI,
+    center_period: float = SIDEREAL_YEAR_S,
+    center_phase: float = TAIJI_AHEAD_CENTER_PHASE,
+    arm_length: float = TAIJI_NOMINAL_ARM_M,
+    cartwheel_period: float = SIDEREAL_YEAR_S,
+    cartwheel_phase: float = TAIJI_SIMPLE_CARTWHEEL_PHASE,
+    plane_inclination: float = BBO_STAGE1_PLANE_INCLINATION,
+    force_backend: str | None = None,
+) -> SampledOrbits:
+    arrays = build_taiji_simple_orbit_arrays(
+        duration=duration,
+        orbit_dt=orbit_dt,
+        time_offset=time_offset,
+        center_radius=center_radius,
+        center_period=center_period,
+        center_phase=center_phase,
+        arm_length=arm_length,
+        cartwheel_period=cartwheel_period,
+        cartwheel_phase=cartwheel_phase,
+        plane_inclination=plane_inclination,
+    )
+    return _sampled_from_arrays(arrays, force_backend=force_backend)
+
+
 def make_tianqin_toy_orbits(
     *,
     duration: float,
@@ -1290,6 +1446,74 @@ def make_orbits_from_spec(
         arrays = _transform_arrays(arrays, orbit_spec)
         return _sampled_from_arrays(arrays, force_backend=force_backend)
 
+    if base in ("lisa-simple", "lisa_simple"):
+        if orbit_spec.duration is None:
+            raise ValueError("duration is required for lisa-simple orbits")
+        arrays = build_lisa_simple_orbit_arrays(
+            duration=orbit_spec.duration,
+            orbit_dt=orbit_spec.orbit_dt,
+            time_offset=orbit_spec.time_offset,
+            center_radius=AU_SI if orbit_spec.center_radius is None else orbit_spec.center_radius,
+            center_period=SIDEREAL_YEAR_S if orbit_spec.center_period is None else orbit_spec.center_period,
+            center_phase=(
+                LISA_TRAILING_CENTER_PHASE
+                if orbit_spec.center_phase is None
+                else orbit_spec.center_phase
+            ),
+            arm_length=LISA_NOMINAL_ARM_M if orbit_spec.armlength is None else orbit_spec.armlength,
+            cartwheel_period=(
+                SIDEREAL_YEAR_S
+                if orbit_spec.cartwheel_period is None
+                else orbit_spec.cartwheel_period
+            ),
+            cartwheel_phase=(
+                LISA_SIMPLE_CARTWHEEL_PHASE
+                if orbit_spec.cartwheel_phase is None
+                else orbit_spec.cartwheel_phase
+            ),
+            plane_inclination=(
+                BBO_STAGE1_PLANE_INCLINATION
+                if orbit_spec.plane_inclination is None
+                else orbit_spec.plane_inclination
+            ),
+        )
+        arrays = _transform_arrays(arrays, orbit_spec)
+        return _sampled_from_arrays(arrays, force_backend=force_backend)
+
+    if base in ("taiji-simple", "taiji_simple"):
+        if orbit_spec.duration is None:
+            raise ValueError("duration is required for taiji-simple orbits")
+        arrays = build_taiji_simple_orbit_arrays(
+            duration=orbit_spec.duration,
+            orbit_dt=orbit_spec.orbit_dt,
+            time_offset=orbit_spec.time_offset,
+            center_radius=AU_SI if orbit_spec.center_radius is None else orbit_spec.center_radius,
+            center_period=SIDEREAL_YEAR_S if orbit_spec.center_period is None else orbit_spec.center_period,
+            center_phase=(
+                TAIJI_AHEAD_CENTER_PHASE
+                if orbit_spec.center_phase is None
+                else orbit_spec.center_phase
+            ),
+            arm_length=TAIJI_NOMINAL_ARM_M if orbit_spec.armlength is None else orbit_spec.armlength,
+            cartwheel_period=(
+                SIDEREAL_YEAR_S
+                if orbit_spec.cartwheel_period is None
+                else orbit_spec.cartwheel_period
+            ),
+            cartwheel_phase=(
+                TAIJI_SIMPLE_CARTWHEEL_PHASE
+                if orbit_spec.cartwheel_phase is None
+                else orbit_spec.cartwheel_phase
+            ),
+            plane_inclination=(
+                BBO_STAGE1_PLANE_INCLINATION
+                if orbit_spec.plane_inclination is None
+                else orbit_spec.plane_inclination
+            ),
+        )
+        arrays = _transform_arrays(arrays, orbit_spec)
+        return _sampled_from_arrays(arrays, force_backend=force_backend)
+
     if base == "taiji-triangle":
         t_data, x_data, v_data = _load_taiji_triangle_series(orbit_spec.orbit_dir, max_rows=orbit_spec.max_rows)
         arrays = build_orbit_arrays(t_data, x_data, links=orbit_spec.links, armlength=TAIJI_NOMINAL_ARM_M, v=v_data)
@@ -1378,7 +1602,7 @@ def make_orbits_from_spec(
         return _sampled_from_arrays(arrays, force_backend=force_backend)
 
     raise ValueError(
-        "orbit spec base must be esa, equal-armlength, taiji-triangle, "
+        "orbit spec base must be esa, equal-armlength, lisa-simple, taiji-simple, taiji-triangle, "
         "taiji-accurate, tianqin-toy, bbo-stage1-toy, or file"
     )
 
