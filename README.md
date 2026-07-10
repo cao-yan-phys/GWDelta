@@ -113,7 +113,7 @@ GWDelta can build FastLISAResponse-compatible orbit objects from the following `
 | `taiji-simple`    | Taiji simple equal-arm orbit | Built-in rigid heliocentric cartwheel model             |
 | `taiji-accurate`  | Taiji realistic orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) |
 | `esa`             | LISA realistic orbit  | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
-| `bbo-stage1-toy`  | BBO toy orbit         | Built-in rigid heliocentric Stage-I toy model                |
+| `bbo-stage1-toy`  | BBO toy orbit         | Built-in rigid heliocentric toy model                        |
 | `tianqin-toy`     | TianQin toy orbit     | Built-in rigid geocentric toy model                          |
 | `file`            | User orbit            | Sampled NPZ/CSV orbit data                                   |
 
