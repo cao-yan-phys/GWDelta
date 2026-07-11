@@ -24,7 +24,7 @@ The example below compares three Taiji response calculations for a precessing qu
 
 ## Example 2
 
-The example below compares a one-year eccentric comparable-mass compact binary waveform generated with an analytic kludge (AK) model using two Taiji orbit choices. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
+The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two Taiji response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
 
 Binary masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$ .
 
