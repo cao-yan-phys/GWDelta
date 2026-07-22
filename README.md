@@ -198,7 +198,7 @@ The time-domain interface separates the TDI delay combination from the output ch
 
 - `tdi="1st generation"`: first-generation Michelson-style ordinary triplet; see [arXiv:gr-qc/0409034](https://arxiv.org/abs/gr-qc/0409034).
 - `tdi="2nd generation"`: second-generation Michelson-style ordinary triplet; see [arXiv:gr-qc/0310017](https://arxiv.org/abs/gr-qc/0310017).
-- `tdi="hybrid relay"`: hybrid Relay ordinary triplet; see [arXiv:2403.01490](https://arxiv.org/abs/2403.01490).
+- `tdi="hybrid relay"`: second-generation hybrid Relay ordinary triplet; see [arXiv:2403.01490](https://arxiv.org/abs/2403.01490).
 - `tdi=[...]`: a custom list of FastLISAResponse delay-term dictionaries.
 - `tdi_chan="XYZ"`: return the three ordinary channels using the existing FastLISAResponse output names.
 - `tdi_chan="AET"`: rotate the selected ordinary triplet to three optimal channels; see [arXiv:gr-qc/0209039](https://arxiv.org/abs/gr-qc/0209039).
