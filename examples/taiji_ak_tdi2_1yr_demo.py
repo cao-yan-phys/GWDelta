@@ -79,7 +79,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-static", action="store_true", dest="skip_simple", help=argparse.SUPPRESS)
     parser.add_argument("--skip-realistic", action="store_true")
     parser.add_argument("--skip-pn", action="store_true")
-    parser.add_argument("--taiji-orbit-dir", type=Path, default=WORKSPACE_ROOT / "GWDelta_orbit_data" / "MicroSateOrbitEclipticTCB")
+    parser.add_argument(
+        "--taiji-orbit-dir",
+        type=Path,
+        default=WORKSPACE_ROOT / "GWDelta_orbit_data" / "MicroSateOrbitEclipticTCB",
+    )
     parser.add_argument("--reference-time-s", type=float, default=0.0)
     parser.add_argument("--orbit-dt", type=float, default=600.0)
     parser.add_argument("--orbit-margin-s", type=float, default=1200.0)
@@ -285,7 +289,12 @@ def make_ak_phase_coefficients(params: NotebookParameters, phase_model: str) -> 
     }
 
 
-def ak_f22_frequency_summary(params: NotebookParameters, scale, t_code_end: float, phase_coefficients: dict[str, float | str]) -> dict[str, float | str]:
+def ak_f22_frequency_summary(
+    params: NotebookParameters,
+    scale,
+    t_code_end: float,
+    phase_coefficients: dict[str, float | str],
+) -> dict[str, float | str]:
     omega0 = float(phase_coefficients["omega0"])
     omega_dot = float(phase_coefficients["omega_dot"])
     omega_ddot_phase = float(phase_coefficients["omega_ddot_phase"])
@@ -420,7 +429,9 @@ def generate_pn_polarizations(t_seconds: np.ndarray, args: argparse.Namespace):
         "sample_backend": backend.name,
         "generator_metadata": {
             **samples.metadata,
-            "model": str(samples.metadata.get("model", "PN_evolving_phases_backend_modes")).replace("PN" + "_QK", "PN"),
+            "model": str(
+                samples.metadata.get("model", "PN_evolving_phases_backend_modes")
+            ).replace("PN" + "_QK", "PN"),
         },
         "params": asdict(pn_params),
         "alignment": {
@@ -501,7 +512,10 @@ def build_orbit_map(args: argparse.Namespace, duration_s: float) -> tuple[dict[s
     if not args.skip_realistic:
         orbit_map["realistic"] = realistic_orbits
     alignment = {
-        "rule": "dynamic simple equal-arm orbit is matched to the standard-labeled realistic Taiji triangle at reference_time_s",
+        "rule": (
+            "dynamic simple equal-arm orbit is matched to the standard-labeled "
+            "realistic Taiji triangle at reference_time_s"
+        ),
         "reference_time_s": reference_time,
         "simple_equal_arm_match": match_to_dict(simple_match),
     }
