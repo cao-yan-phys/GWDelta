@@ -24,6 +24,8 @@ if str(SRC_ROOT) not in sys.path:
 
 
 def preconfigure_cuda_environment() -> None:
+    """Expose a standard CUDA 12.3 installation before GPU imports."""
+
     if os.name != "nt":
         return
     cuda_root = Path(r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3")

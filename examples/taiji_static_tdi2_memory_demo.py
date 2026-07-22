@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from dataclasses import asdict
@@ -28,6 +29,35 @@ SRC_ROOT = REPO_ROOT / "src"
 for item in (SRC_ROOT,):
     if str(item) not in sys.path:
         sys.path.insert(0, str(item))
+
+
+def preconfigure_cuda_environment() -> None:
+    """Expose a standard CUDA 12.3 installation before GPU imports."""
+
+    if os.name != "nt":
+        return
+    cuda_root = Path(r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3")
+    if not cuda_root.exists():
+        return
+    for key in ("CUDA_PATH", "CUDA_PATH_V12_3", "CUDA_HOME", "CUPY_CUDA_PATH", "CUDAToolkit_ROOT"):
+        os.environ.setdefault(key, str(cuda_root))
+    preferred = [cuda_root / "bin", cuda_root / "lib" / "x64", cuda_root / "lib"]
+    preferred_resolved = [str(path.resolve()) for path in preferred if path.exists()]
+    preferred_norm = {path.lower() for path in preferred_resolved}
+    existing = []
+    for part in os.environ.get("PATH", "").split(os.pathsep):
+        if not part:
+            continue
+        try:
+            key = str(Path(part).resolve()).lower()
+        except OSError:
+            key = part.lower()
+        if key not in preferred_norm:
+            existing.append(part)
+    os.environ["PATH"] = os.pathsep.join(preferred_resolved + existing)
+
+
+preconfigure_cuda_environment()
 
 from gwdelta import (  # noqa: E402
     FastLISAResponseTDI,
@@ -116,7 +146,10 @@ def load_waveform(
             "h_plus_no_memory_key": "h_plus_osc",
             "h_cross_no_memory_key": "h_cross_osc",
             "memory_start_alignment": {
-                "rule": "total polarizations are shifted by the initial total-minus-no-memory offset so memory starts at zero",
+                "rule": (
+                    "total polarizations are shifted by the initial total-minus-no-memory "
+                    "offset so memory starts at zero"
+                ),
                 "offset_subtracted": memory_start_offsets,
                 "first_sample_after_alignment": {
                     "h_plus_total_minus_no_memory": float(h_plus[0] - h_plus_no_memory[0]),
@@ -219,7 +252,12 @@ def power_low_frequency_gate(freqs: np.ndarray, f_pass: float, power: float) -> 
     return gate
 
 
-def default_reference_time(t: np.ndarray, h_plus: np.ndarray, h_cross: np.ndarray, metadata: dict[str, object]) -> float:
+def default_reference_time(
+    t: np.ndarray,
+    h_plus: np.ndarray,
+    h_cross: np.ndarray,
+    metadata: dict[str, object],
+) -> float:
     params_peak = metadata.get("peak_time_s")
     start = metadata.get("input_start_time_s", 0.0)
     if params_peak is not None:
@@ -345,12 +383,24 @@ def compare_spectra(
         beta=args.beta,
         tdi="2nd generation",
     )
+    a_fd_memory_only_full, e_fd_memory_only_full = fd_response.ae(
+        freqs,
+        hp_memory_only_f,
+        hc_memory_only_f,
+        lam=args.lam,
+        beta=args.beta,
+        tdi="2nd generation",
+    )
     a_fd_time = np.fft.irfft(a_fd_full / dt, n=n)
     e_fd_time = np.fft.irfft(e_fd_full / dt, n=n)
     a_fd_no_memory_time = np.fft.irfft(a_fd_no_memory_full / dt, n=n)
     e_fd_no_memory_time = np.fft.irfft(e_fd_no_memory_full / dt, n=n)
 
-    guard = int(round(args.comparison_guard_s / dt)) if args.comparison_guard_s is not None else int(meta_static["tdi_start_ind"])
+    guard = (
+        int(round(args.comparison_guard_s / dt))
+        if args.comparison_guard_s is not None
+        else int(meta_static["tdi_start_ind"])
+    )
     if 2 * guard >= n:
         raise ValueError("comparison guard removes all samples; reduce --comparison-guard-s or --t-buffer")
     comparison_window = np.zeros(n, dtype=float)
@@ -381,7 +431,10 @@ def compare_spectra(
             {
                 "f_pass_hz": f_pass,
                 "power": float(args.oscillatory_cleanup_power),
-                "rule": "applied only to no-memory oscillatory A/E display spectra; gate=(f/f_pass)^power below f_pass and unity at/above f_pass",
+                "rule": (
+                    "applied only to no-memory oscillatory A/E display spectra; "
+                    "gate=(f/f_pass)^power below f_pass and unity at/above f_pass"
+                ),
             }
         )
     a_static_display = (a_static_f - a_static_no_memory_f) + cleanup_gate * a_static_no_memory_f
@@ -414,6 +467,10 @@ def compare_spectra(
         "comparison_window_tukey_alpha": float(args.fft_window_alpha),
         "tdi_spectrum_method": "FFT(windowed time-domain A/E)",
         "source_memory_spectrum_method": "FFT(time derivative)/(i 2 pi f), f=0 set to 0",
+        "analytic_memory_only_spectrum": (
+            "static frequency-domain response applied to memory-only source spectra "
+            "recovered from FFT(dh/dt)/(i 2 pi f)"
+        ),
         "oscillatory_leakage_cleanup": cleanup_summary,
         "fd_vs_td_reference": "realistic Taiji orbit TD",
         "realistic_A_fd_vs_td_relative_l2": rel_l2(a_fd, a_realistic_f, mask),
@@ -461,6 +518,8 @@ def compare_spectra(
         "E_static_fd_full": e_fd_full,
         "A_static_fd_no_memory_full": a_fd_no_memory_full,
         "E_static_fd_no_memory_full": e_fd_no_memory_full,
+        "A_static_fd_memory_only_full": a_fd_memory_only_full,
+        "E_static_fd_memory_only_full": e_fd_memory_only_full,
         "A_static_fd_time": a_fd_time,
         "E_static_fd_time": e_fd_time,
         "A_static_fd_no_memory_time": a_fd_no_memory_time,
@@ -514,7 +573,16 @@ def plot_outputs(
         memory_only = spectra[f"{channel}_realistic_memory_only_td"]
         static = spectra[f"{channel}_static_td"]
         fd = spectra[f"{channel}_static_fd"]
+        fd_memory_only = spectra[f"{channel}_static_fd_memory_only_full"]
         freq_scale = 1.0 / (freqs[1:] ** 2)
+        ax.loglog(
+            freqs[1:],
+            freq_scale * np.abs(fd_memory_only[1:]),
+            color="red",
+            lw=1.0,
+            label="analytic response (memory only)",
+            zorder=0,
+        )
         ax.loglog(freqs[1:], freq_scale * np.abs(realistic[1:]), lw=1.0, label="realistic Taiji orbit")
         if bool(summary.get("oscillatory_leakage_cleanup", {}).get("enabled", False)):
             ax.loglog(
@@ -525,7 +593,13 @@ def plot_outputs(
                 lw=1.0,
                 label="realistic Taiji orbit (leakage suppressed)",
             )
-        ax.loglog(freqs[1:], freq_scale * np.abs(no_memory[1:]), "k--", lw=1.0, label="realistic Taiji orbit (no memory)")
+        ax.loglog(
+            freqs[1:],
+            freq_scale * np.abs(no_memory[1:]),
+            "k--",
+            lw=1.0,
+            label="realistic Taiji orbit (no memory)",
+        )
         ax.loglog(
             freqs[1:],
             freq_scale * np.abs(memory_only[1:]),
@@ -661,7 +735,11 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "source_gate_tukey_alpha": None if args.source_gate_alpha < 0.0 else float(args.source_gate_alpha),
             "no_memory_reference": "realistic Taiji response to h_plus_osc and h_cross_osc",
             "frequency_domain_memory_treatment": "spectra are recovered from FFT(time derivative)/(i 2 pi f)",
-            "plotted_detector_spectra": "raw normally windowed A/E spectra plus an explicit leakage-suppressed display spectrum, all divided by f^2",
+            "plotted_detector_spectra": (
+                "raw normally windowed A/E spectra, an explicit leakage-suppressed "
+                "display spectrum, and an analytic memory-only response curve, all "
+                "divided by f^2"
+            ),
             "memory_max_abs": {
                 "h_plus": float(np.max(np.abs(h_plus - h_plus_no_memory))),
                 "h_cross": float(np.max(np.abs(h_cross - h_cross_no_memory))),
@@ -763,7 +841,10 @@ def parse_args() -> argparse.Namespace:
         "--clean-oscillatory-leakage",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="For display spectra, suppress no-memory finite-window leakage below the physical oscillatory start frequency.",
+        help=(
+            "For display spectra, suppress no-memory finite-window leakage below the "
+            "physical oscillatory start frequency."
+        ),
     )
     parser.add_argument("--oscillatory-start-freq", type=float, default=None)
     parser.add_argument("--oscillatory-cleanup-pass-freq", type=float, default=None)
