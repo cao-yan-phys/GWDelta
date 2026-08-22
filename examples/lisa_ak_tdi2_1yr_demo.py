@@ -1,4 +1,4 @@
-"""One-year eccentric AK waveform through second-generation Taiji A/E TDI.
+"""One-year eccentric AK waveform through second-generation LISA A/E TDI.
 
 The AK waveform generator is intentionally kept outside the public ``gwdelta``
 source tree.  This example imports it from the sibling ``benchmark_waveforms``
@@ -75,7 +75,7 @@ from pn_qk_waveform import parameters_from_mean_motion_alignment  # noqa: E402
 
 
 SIDEREAL_YEAR_S = 31558149.763545603
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "taiji_ak_tdi2_1yr_demo"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "lisa_ak_tdi2_1yr_demo"
 
 
 def parse_args() -> argparse.Namespace:
@@ -86,13 +86,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--response-backend", choices=["cpu", "cuda12x"], default="cuda12x")
     parser.add_argument("--skip-simple", action="store_true")
     parser.add_argument("--skip-static", action="store_true", dest="skip_simple", help=argparse.SUPPRESS)
-    parser.add_argument("--skip-realistic", action="store_true")
+    parser.add_argument("--skip-esa", action="store_true", dest="skip_realistic")
     parser.add_argument("--skip-pn", action="store_true")
-    parser.add_argument(
-        "--taiji-orbit-dir",
-        type=Path,
-        default=WORKSPACE_ROOT / "GWDelta_orbit_data" / "MicroSateOrbitEclipticTCB",
-    )
     parser.add_argument("--reference-time-s", type=float, default=0.0)
     parser.add_argument("--orbit-dt", type=float, default=600.0)
     parser.add_argument("--orbit-margin-s", type=float, default=1200.0)
@@ -478,19 +473,15 @@ def selected_orbit_labels(args: argparse.Namespace) -> list[str]:
     return labels
 
 
-def make_realistic_taiji_orbits(args: argparse.Namespace, duration_s: float):
-    if not args.taiji_orbit_dir.exists():
-        raise FileNotFoundError(f"Taiji orbit directory does not exist: {args.taiji_orbit_dir}")
-    raw_orbits = make_orbits_from_spec(
+def make_esa_lisa_orbits(args: argparse.Namespace, duration_s: float):
+    return make_orbits_from_spec(
         {
-            "base": "taiji-accurate",
-            "orbit_dir": str(args.taiji_orbit_dir),
+            "base": "esa",
             "orbit_dt": float(args.orbit_dt),
         },
         duration=duration_s,
         force_backend=args.response_backend,
     )
-    return make_standard_convention_orbits(raw_orbits, force_backend=args.response_backend)
 
 
 def match_to_dict(match) -> dict[str, object]:
@@ -502,17 +493,32 @@ def match_to_dict(match) -> dict[str, object]:
 
 
 def build_orbit_map(args: argparse.Namespace, duration_s: float) -> tuple[dict[str, object], dict[str, object]]:
-    realistic_orbits = make_realistic_taiji_orbits(args, duration_s)
+    realistic_orbits = make_esa_lisa_orbits(args, duration_s)
     reference_time = float(args.reference_time_s)
     t_base = np.asarray(realistic_orbits.t_base, dtype=float)
     if reference_time < t_base[0] or reference_time > t_base[-1]:
-        raise ValueError("reference_time_s must lie inside the sampled realistic Taiji orbit")
-    reference_positions = interpolate_series(t_base, realistic_orbits.x_base, reference_time)
-    simple_orbits, simple_match = make_dynamic_equal_arm_orbits_from_reference(
+        raise ValueError("reference_time_s must lie inside the sampled ESA LISA orbit")
+    # ESAOrbits uses the opposite 1/2 spacecraft handedness from the analytic
+    # cartwheel helper. Fit in the helper's standard convention, then restore
+    # ESA's native labels before the TDI response calculation.
+    realistic_standard = make_standard_convention_orbits(
+        realistic_orbits,
+        force_backend=args.response_backend,
+    )
+    reference_positions = interpolate_series(
+        np.asarray(realistic_standard.t_base, dtype=float),
+        realistic_standard.x_base,
+        reference_time,
+    )
+    simple_standard, simple_match = make_dynamic_equal_arm_orbits_from_reference(
         reference_positions,
         duration_s=duration_s,
         reference_time_s=reference_time,
         orbit_dt=float(args.orbit_dt),
+        force_backend=args.response_backend,
+    )
+    simple_orbits = make_standard_convention_orbits(
+        simple_standard,
         force_backend=args.response_backend,
     )
     orbit_map: dict[str, object] = {}
@@ -522,9 +528,11 @@ def build_orbit_map(args: argparse.Namespace, duration_s: float) -> tuple[dict[s
         orbit_map["realistic"] = realistic_orbits
     alignment = {
         "rule": (
-            "dynamic simple equal-arm orbit is matched to the standard-labeled "
-            "realistic Taiji triangle at reference_time_s"
+            "dynamic equal-arm cartwheel is fitted to the ESA LISA triangle at "
+            "reference_time_s after native-to-standard label conversion, then "
+            "converted back to ESA native labels for TDI"
         ),
+        "native_to_standard_spacecraft_permutation": [1, 0, 2],
         "reference_time_s": reference_time,
         "simple_equal_arm_match": match_to_dict(simple_match),
     }
@@ -583,9 +591,9 @@ def compute_spectrum(values, dt: float, alpha: float):
 
 def response_plot_styles() -> dict[str, dict[str, object]]:
     return {
-        "simple": {"label": "simple Taiji orbit (AK)", "ls": "-", "lw": 0.9, "color": None},
-        "realistic": {"label": "realistic Taiji orbit (AK)", "ls": "--", "lw": 0.9, "color": None},
-        "pn_realistic": {"label": "realistic Taiji orbit (PN)", "ls": "--", "lw": 1.0, "color": "0.0"},
+        "simple": {"label": "simple LISA orbit (AK)", "ls": "-", "lw": 0.9, "color": None},
+        "realistic": {"label": "realistic LISA orbit (AK)", "ls": "--", "lw": 0.9, "color": None},
+        "pn_realistic": {"label": "realistic LISA orbit (PN)", "ls": "--", "lw": 1.0, "color": "0.0"},
     }
 
 
@@ -795,7 +803,7 @@ def plot_a_zoom_outputs(
     ax_freq.set_xlabel(r"$f$ [mHz]")
     ax_freq.set_ylabel(r"$|\tilde A(f)|$")
     ax_freq.grid(alpha=0.25)
-    ax_freq.legend(loc="best")
+    ax_freq.legend(loc="lower left")
 
     fig.savefig(figure_path, dpi=180)
     plt.close(fig)
@@ -803,17 +811,17 @@ def plot_a_zoom_outputs(
 
 def run(args: argparse.Namespace) -> dict[str, object]:
     def log(message: str) -> None:
-        print(f"[taiji_ak_tdi2_1yr_demo] {message}", flush=True)
+        print(f"[lisa_ak_tdi2_1yr_demo] {message}", flush=True)
 
     tic_total = time.perf_counter()
     log("configuring CUDA/runtime")
     configure_cuda_if_needed(args.response_backend)
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    figure_path = output_dir / "taiji_ak_tdi2_1yr_demo.png"
-    a_zoom_figure_path = output_dir / "taiji_ak_tdi2_1yr_demo_A_zoom.png"
+    figure_path = output_dir / "lisa_ak_tdi2_1yr_demo.png"
+    a_zoom_figure_path = output_dir / "lisa_ak_tdi2_1yr_demo_A_zoom.png"
     summary_path = output_dir / "summary.json"
-    npz_path = output_dir / "taiji_ak_tdi2_1yr_demo_decimated.npz"
+    npz_path = output_dir / "lisa_ak_tdi2_1yr_demo_decimated.npz"
 
     t_seconds, dt = build_time_grid(args.years, args.dt)
     log(f"built time grid: samples={len(t_seconds)}, dt={dt:g} s, years={args.years:g}")
@@ -836,14 +844,14 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     duration_s = float(t_seconds[-1] - t_seconds[0] + args.orbit_margin_s)
     responses: dict[str, dict[str, object]] = {}
     response_timings: dict[str, float] = {}
-    log("building realistic Taiji orbit and dynamic simple Taiji orbit")
+    log("building ESA LISA orbit and matched dynamic equal-arm LISA orbit")
     tic = time.perf_counter()
     orbit_map, orbit_alignment = build_orbit_map(args, duration_s)
     orbit_setup_s = time.perf_counter() - tic
     log(f"orbit setup done in {orbit_setup_s:.3g} s")
     orbit_labels = list(orbit_map)
     for label, orbits in orbit_map.items():
-        log(f"computing {label} Taiji A/E response")
+        log(f"computing {label} LISA A/E response")
         response_data, response_s = compute_tdi_for_orbit(
             label=label,
             orbits=orbits,
@@ -857,7 +865,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         log(f"{label} response done in {response_s:.3g} s")
     if pn_h_plus is not None and pn_h_cross is not None and "realistic" in orbit_map:
         label = "pn_realistic"
-        log("computing PN realistic Taiji A/E response")
+        log("computing PN ESA LISA A/E response")
         response_data, response_s = compute_tdi_for_orbit(
             label=label,
             orbits=orbit_map["realistic"],
@@ -916,7 +924,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "tdi_chan": "AE",
             "orbit_labels": orbit_labels,
             "response_labels": list(responses),
-            "taiji_orbit_dir": str(args.taiji_orbit_dir),
+            "numerical_orbit": "ESAOrbits from lisatools",
             "orbit_alignment": orbit_alignment,
             "metadata": {label: data["metadata"] for label, data in responses.items()},
         },
