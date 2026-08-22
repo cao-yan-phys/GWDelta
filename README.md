@@ -24,17 +24,17 @@ The example below compares three Taiji response calculations for a precessing qu
 
 ## Example 2
 
-The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two Taiji response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
+The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two LISA response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
 
 Binary masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$ .
 
 The parameters of the AK and PN models are matched initially. The PN model uses the 1PN QK parametrization and 3PN evolution equations for $x(t)$ and $e_t(t)$. The waveform amplitude includes only the Newtonian quadrupolar $h_{2,0}$ and $h_{2,\pm2}$ modes. In the AK model, the harmonic phase includes a cubic-in-time term, and the periastron-precession phase includes a quadratic-in-time term.
 
-![One-year AK Taiji response comparison](docs/figures/taiji_ak_tdi2_1yr_demo.png)
+![One-year AK LISA response comparison](docs/figures/lisa_ak_tdi2_1yr_demo.png)
 
 
 
-![One-year AK Taiji A-channel zoom](docs/figures/taiji_ak_tdi2_1yr_demo_A_zoom.png)
+![One-year AK LISA A-channel zoom](docs/figures/lisa_ak_tdi2_1yr_demo_A_zoom.png)
 
 ## Example 3
 
@@ -44,7 +44,7 @@ The script below computes the $A,E$-channel SNR of a monochromatic elliptically 
 python examples/monochromatic_snr_time_domain.py --years 1 --frequency 0.003 --amplitude 1e-22 --detectors all --response-backend cuda12x
 ```
 
-`--detectors all` uses the built-in simple/toy orbits for LISA, Taiji, TianQin, and BBO. The script prints one SNR per detector and writes a small JSON summary under `outputs/monochromatic_snr_time_domain/`.
+`--detectors all` uses the built-in analytic orbit models for LISA, Taiji, TianQin, and BBO. The script prints one SNR per detector and writes a small JSON summary under `outputs/monochromatic_snr_time_domain/`.
 
 The source model is $h_+(t)=h_0\cos(2\pi f_0 t+\phi_0)$ and $h_\times(t)=\epsilon h_0\cos(2\pi f_0 t+\phi_0+\delta_\times)$. Here `--ellipticity` is $\epsilon$, `--phase` is $\phi_0$, and `--cross-phase` is the relative phase $\delta_\times$ of $h_\times$ with respect to $h_+$. The default `--cross-phase -1.57079632679` gives the usual quadrature phase.
 
@@ -111,10 +111,10 @@ GWDelta can build FastLISAResponse-compatible orbit objects from the following `
 | ----------------- | --------------------- | ------------------------------------------------------------ |
 | `lisa-simple`     | LISA simple equal-arm orbit | Built-in rigid heliocentric cartwheel model             |
 | `taiji-simple`    | Taiji simple equal-arm orbit | Built-in rigid heliocentric cartwheel model             |
-| `taiji-accurate`  | Taiji realistic orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) |
-| `esa`             | LISA realistic orbit  | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
-| `bbo-stage1-toy`  | BBO toy orbit         | Built-in rigid heliocentric toy model                        |
-| `tianqin-toy`     | TianQin toy orbit     | Built-in rigid geocentric toy model                          |
+| `taiji-accurate`  | Taiji numerical orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) (covers 114 days) |
+| `esa`             | LISA numerical orbit  | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
+| `bbo-stage1-toy`  | BBO Stage 1 orbit     | Built-in rigid heliocentric cartwheel model                  |
+| `tianqin-toy`     | TianQin orbit         | Built-in rigid geocentric cartwheel model                     |
 | `file`            | User orbit            | Sampled NPZ/CSV orbit data                                   |
 
 **Warning:** The Taiji orbit files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
