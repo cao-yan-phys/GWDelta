@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 import numpy as np
@@ -9,6 +9,14 @@ import numpy as np
 C_SI = 299_792_458.0
 TAIJI_ARM_M = 3.0e9
 DEFAULT_LINKS = (12, 23, 31, 13, 32, 21)
+POLARIZATION_NAMES = (
+    "plus",
+    "cross",
+    "vector_x",
+    "vector_y",
+    "breathing",
+    "longitudinal",
+)
 
 
 def static_taiji_positions(arm_m: float = TAIJI_ARM_M) -> np.ndarray:
@@ -42,6 +50,18 @@ def sky_basis(lam: float, beta: float) -> tuple[np.ndarray, np.ndarray, np.ndarr
     return k, u, v
 
 
+def polarization_tensors(lam: float, beta: float) -> dict[str, np.ndarray]:
+    k, u, v = sky_basis(lam, beta)
+    return {
+        "plus": np.outer(u, u) - np.outer(v, v),
+        "cross": np.outer(u, v) + np.outer(v, u),
+        "vector_x": np.outer(u, k) + np.outer(k, u),
+        "vector_y": np.outer(v, k) + np.outer(k, v),
+        "breathing": np.outer(u, u) + np.outer(v, v),
+        "longitudinal": np.sqrt(2.0) * np.outer(k, k),
+    }
+
+
 def receivers_emitters(links: Iterable[int] = DEFAULT_LINKS) -> tuple[np.ndarray, np.ndarray]:
     links_tuple = tuple(int(link) for link in links)
     receivers = np.asarray([int(str(link)[0]) - 1 for link in links_tuple], dtype=int)
@@ -49,21 +69,21 @@ def receivers_emitters(links: Iterable[int] = DEFAULT_LINKS) -> tuple[np.ndarray
     return receivers, emitters
 
 
-def link_fd_response(
+def link_fd_polarization_response(
     freqs: np.ndarray,
     *,
     lam: float,
     beta: float,
     positions_m: np.ndarray,
     links: Iterable[int] = DEFAULT_LINKS,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> dict[str, np.ndarray]:
     freqs = np.asarray(freqs, dtype=float)
     links_tuple = tuple(int(link) for link in links)
     positions_m = np.asarray(positions_m, dtype=float)
     if positions_m.shape != (3, 3):
         raise ValueError("positions_m must have shape (3, 3)")
 
-    k, u, v = sky_basis(lam, beta)
+    k, _u, _v = sky_basis(lam, beta)
     receivers, emitters = receivers_emitters(links_tuple)
     x_rec = positions_m[receivers]
     x_em = positions_m[emitters]
@@ -74,16 +94,40 @@ def link_fd_response(
     k_dot_n = n @ k
     kx_rec_s = x_rec @ k / C_SI
     kx_em_s = x_em @ k / C_SI
-    u_dot_n = n @ u
-    v_dot_n = n @ v
-    xi_plus = 0.5 * (u_dot_n * u_dot_n - v_dot_n * v_dot_n)
-    xi_cross = u_dot_n * v_dot_n
 
-    phase_em = np.exp(-2j * np.pi * freqs[np.newaxis, :] * (arm_s[:, np.newaxis] + kx_em_s[:, np.newaxis]))
-    phase_rec = np.exp(-2j * np.pi * freqs[np.newaxis, :] * kx_rec_s[:, np.newaxis])
-    denom = (1.0 - k_dot_n)[:, np.newaxis]
-    g = (phase_em - phase_rec) / denom
-    return xi_plus[:, np.newaxis] * g, xi_cross[:, np.newaxis] * g
+    phase_em = np.exp(
+        -2j
+        * np.pi
+        * freqs[np.newaxis, :]
+        * (arm_s[:, np.newaxis] + kx_em_s[:, np.newaxis])
+    )
+    phase_rec = np.exp(
+        -2j * np.pi * freqs[np.newaxis, :] * kx_rec_s[:, np.newaxis]
+    )
+    transfer = (phase_em - phase_rec) / (1.0 - k_dot_n)[:, np.newaxis]
+    return {
+        name: 0.5 * np.einsum("li,ij,lj->l", n, tensor, n)[:, np.newaxis]
+        * transfer
+        for name, tensor in polarization_tensors(lam, beta).items()
+    }
+
+
+def link_fd_response(
+    freqs: np.ndarray,
+    *,
+    lam: float,
+    beta: float,
+    positions_m: np.ndarray,
+    links: Iterable[int] = DEFAULT_LINKS,
+) -> tuple[np.ndarray, np.ndarray]:
+    response = link_fd_polarization_response(
+        freqs,
+        lam=lam,
+        beta=beta,
+        positions_m=positions_m,
+        links=links,
+    )
+    return response["plus"], response["cross"]
 
 
 def cyclic_permutation(link: int, permutation: int) -> int:
@@ -253,6 +297,17 @@ class StaticTaijiFDResponse:
     def link_response(self, freqs: np.ndarray, *, lam: float, beta: float) -> tuple[np.ndarray, np.ndarray]:
         return link_fd_response(freqs, lam=lam, beta=beta, positions_m=self.positions_m, links=self.links)
 
+    def polarization_link_response(
+        self, freqs: np.ndarray, *, lam: float, beta: float
+    ) -> dict[str, np.ndarray]:
+        return link_fd_polarization_response(
+            freqs,
+            lam=lam,
+            beta=beta,
+            positions_m=self.positions_m,
+            links=self.links,
+        )
+
     def xyz(
         self,
         freqs: np.ndarray,
@@ -267,6 +322,38 @@ class StaticTaijiFDResponse:
         y_links = hp_resp * h_plus_f[np.newaxis, :] + hc_resp * h_cross_f[np.newaxis, :]
         return tdi_xyz_from_links(freqs, y_links, tdi=tdi, links=self.links, positions_m=self.positions_m)
 
+    def xyz_polarizations(
+        self,
+        freqs: np.ndarray,
+        h_polarizations_f: Mapping[str, np.ndarray],
+        *,
+        lam: float,
+        beta: float,
+        tdi: str = "1st generation",
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        if not isinstance(h_polarizations_f, Mapping) or not h_polarizations_f:
+            raise ValueError("h_polarizations_f must be a nonempty polarization mapping")
+        frequency = np.asarray(freqs, dtype=float)
+        response = self.polarization_link_response(frequency, lam=lam, beta=beta)
+        unknown = [name for name in h_polarizations_f if name not in POLARIZATION_NAMES]
+        if unknown:
+            raise ValueError(f"unknown polarization names: {unknown}")
+        y_links = np.zeros((len(self.links), len(frequency)), dtype=np.complex128)
+        for name, spectrum in h_polarizations_f.items():
+            values = np.asarray(spectrum, dtype=np.complex128)
+            if values.shape != frequency.shape:
+                raise ValueError(
+                    f"{name} spectrum must have shape {frequency.shape}; got {values.shape}"
+                )
+            y_links += response[name] * values[np.newaxis, :]
+        return tdi_xyz_from_links(
+            frequency,
+            y_links,
+            tdi=tdi,
+            links=self.links,
+            positions_m=self.positions_m,
+        )
+
     def aet(
         self,
         freqs: np.ndarray,
@@ -280,6 +367,25 @@ class StaticTaijiFDResponse:
         X, Y, Z = self.xyz(freqs, h_plus_f, h_cross_f, lam=lam, beta=beta, tdi=tdi)
         return aet_from_xyz(X, Y, Z)
 
+    def aet_polarizations(
+        self,
+        freqs: np.ndarray,
+        h_polarizations_f: Mapping[str, np.ndarray],
+        *,
+        lam: float,
+        beta: float,
+        tdi: str = "1st generation",
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return aet_from_xyz(
+            *self.xyz_polarizations(
+                freqs,
+                h_polarizations_f,
+                lam=lam,
+                beta=beta,
+                tdi=tdi,
+            )
+        )
+
     def ae(
         self,
         freqs: np.ndarray,
@@ -291,6 +397,24 @@ class StaticTaijiFDResponse:
         tdi: str = "1st generation",
     ) -> tuple[np.ndarray, np.ndarray]:
         A, E, _T = self.aet(freqs, h_plus_f, h_cross_f, lam=lam, beta=beta, tdi=tdi)
+        return A, E
+
+    def ae_polarizations(
+        self,
+        freqs: np.ndarray,
+        h_polarizations_f: Mapping[str, np.ndarray],
+        *,
+        lam: float,
+        beta: float,
+        tdi: str = "1st generation",
+    ) -> tuple[np.ndarray, np.ndarray]:
+        A, E, _T = self.aet_polarizations(
+            freqs,
+            h_polarizations_f,
+            lam=lam,
+            beta=beta,
+            tdi=tdi,
+        )
         return A, E
 
     def make_orbits(self, duration_s: float, *, force_backend: str | None = None):
@@ -318,20 +442,43 @@ def fd_static_taiji_ae(
     )
 
 
+def fd_static_taiji_ae_polarizations(
+    freqs: np.ndarray,
+    h_polarizations_f: Mapping[str, np.ndarray],
+    *,
+    lam: float,
+    beta: float,
+    arm_m: float = TAIJI_ARM_M,
+    positions_m: np.ndarray | None = None,
+    tdi: str = "1st generation",
+) -> tuple[np.ndarray, np.ndarray]:
+    return StaticTaijiFDResponse(arm_m=arm_m, positions_m=positions_m).ae_polarizations(
+        freqs,
+        h_polarizations_f,
+        lam=lam,
+        beta=beta,
+        tdi=tdi,
+    )
+
+
 __all__ = [
     "C_SI",
     "DEFAULT_LINKS",
     "FIRST_GEN_X_COMBINATIONS",
+    "POLARIZATION_NAMES",
     "SECOND_GEN_X_COMBINATIONS",
     "TAIJI_ARM_M",
     "StaticTaijiFDResponse",
     "aet_from_xyz",
     "cyclic_permutation",
     "fd_static_taiji_ae",
+    "fd_static_taiji_ae_polarizations",
     "first_generation_xyz_from_links",
     "link_fd_response",
+    "link_fd_polarization_response",
     "make_static_taiji_orbits",
     "normalize_tdi_generation",
+    "polarization_tensors",
     "receivers_emitters",
     "second_generation_xyz_from_links",
     "sky_basis",
