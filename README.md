@@ -198,14 +198,13 @@ H^Q_{ab}&=h^Q_{00}\delta_{ab}+\frac{2}{R}\ddot I_{ab}.
 \end{aligned}
 $$
 
-The $R^{-3}$, $R^{-2}$, and $R^{-1}$ terms retain the near, intermediate, and radiation zones of the first-post-Minkowskian quadrupole metric ([arXiv:gr-qc/0603064](https://arxiv.org/abs/gr-qc/0603064)).
+The $R^{-3}$, $R^{-2}$, and $R^{-1}$ contributions are, respectively, the near-, intermediate-, and radiation-zone parts of the first-post-Minkowskian quadrupole metric ([arXiv:gr-qc/0603064](https://arxiv.org/abs/gr-qc/0603064)).
 
-`steady_state_test_mass_motion()` evaluates the leading nonrelativistic test-mass motion induced by this monochromatic quadrupole using the steady-state forced solution; general time-dependent fields can be handled by `integrate_test_mass_motion()`.
+`steady_state_test_mass_motion()` evaluates the leading nonrelativistic test-mass motion driven by $I_{ab}(u)$ defined above, using the steady-state forced solution; general time-dependent fields can be handled by `integrate_test_mass_motion()`.
 
 ### `SmoothVaidyaMassLoss`
 
-`SmoothVaidyaMassLoss` is the perturbation relative to the pre-loss static field of the outgoing Vaidya spacetime for spherical null radiation ([Vaidya 1951](https://doi.org/10.1007/BF03173260); [Lindquist, Schwartz, and Misner 1965](https://doi.org/10.1103/PhysRev.137.B1364)). Using the same $\mathbf R$, $R$, $\mathbf n$, and $u$, let $\Delta M>0$ be the lost mass,
-
+`SmoothVaidyaMassLoss` is the perturbation relative to the pre-loss static field of the outgoing Vaidya spacetime for spherical null radiation ([Vaidya 1951](https://doi.org/10.1007/BF03173260); [Lindquist, Schwartz, and Misner 1965](https://doi.org/10.1103/PhysRev.137.B1364)). With $\mathbf x_{\mathrm{s}}$ its origin, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. For $\Delta M>0$,
 $$
 F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},\qquad
 \mathcal U_\Delta=\frac{\Delta M}{R}F(u),
@@ -249,7 +248,7 @@ The photon-propagation term is evaluated analytically and is exact in $\beta$ fo
 
 ## Plane-GW Polarizations
 
-For a null plane-wave spatial metric perturbation $h_{ij}=\sum_A h_A e^A_{ij}$, `sky_basis(lam, beta)` returns $(\hat{\mathbf k},\mathbf a,\mathbf b)$, where $(\mathbf a,\mathbf b,\hat{\mathbf k})$ is right-handed and $\hat{\mathbf k}=\mathbf a\times\mathbf b$. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
+For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_{ij}=\sum_A h_A e^A_{ij}$, `sky_basis(lam, beta)` returns the propagation direction $\hat{\mathbf k}$ and transverse vectors $\mathbf a,\mathbf b$; $(\mathbf a,\mathbf b,\hat{\mathbf k})$ is a right-handed orthonormal triad. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
 
 $$
 \begin{aligned}
@@ -262,7 +261,7 @@ e^l&=\sqrt{2}\\,\hat{\mathbf k}\otimes\hat{\mathbf k} .
 \end{aligned}
 $$
 
-They satisfy $e^A_{ij}e^{B}_{ij}=2\delta^{AB}$. `link_fd_polarization_response()` returns the six static one-link transfers, and `StaticTaijiFDResponse.*_polarizations()` coherently combines any subset with keys `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`.
+They satisfy $e^A_{ij}e^{B}_{ij}=2\delta^{AB}$. In the static equal-arm approximation, `link_fd_polarization_response()` returns the six one-link frequency-domain response functions $R^A_{ij}(f)$. Pass a nonempty mapping of spectra, keyed by `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`, to `StaticTaijiFDResponse.xyz_polarizations()`, `.aet_polarizations()`, or `.ae_polarizations()` to obtain the corresponding response. For a prescribed orbit, `FastLISAResponseTDI.compute_polarizations()` takes a mapping of sampled time-domain strains under one or more of the six keys above, constructs the associated tensors internally, and returns the TDI response. The `source_time_s` grid must cover all retarded SSB times evaluated along the links.
 
 ## Orbit Models and Data Sources
 
