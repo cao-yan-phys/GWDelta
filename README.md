@@ -184,7 +184,7 @@ The following metric models are built in:
 
 ### `RetardedQuadrupoleMode`
 
-For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\operatorname{Re}\\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
+For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\mathrm{Re}\\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
 
 $$
 \begin{aligned}
