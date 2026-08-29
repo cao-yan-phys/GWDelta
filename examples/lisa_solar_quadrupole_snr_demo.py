@@ -15,7 +15,7 @@ from weak_field_demo_common import (
     REPO_ROOT,
     SOLAR_EQUATOR_ASCENDING_NODE_DEG,
     SOLAR_EQUATOR_INCLINATION_DEG,
-    SOLAR_G1_M2_DEFAULT_DISK_VELOCITY_M_S,
+    SOLAR_G1_M2_DEFAULT_SURFACE_VELOCITY_M_S,
     SOLAR_G1_M2_FREQUENCY_HZ,
     as_numpy,
     build_time_grids,
@@ -49,10 +49,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tdi-order", type=int, default=15)
     parser.add_argument("--t-buffer", type=float, default=10000.0)
     parser.add_argument(
-        "--disk-velocity-m-s",
+        "--surface-velocity-m-s",
         type=float,
-        default=SOLAR_G1_M2_DEFAULT_DISK_VELOCITY_M_S,
-        help="whole-disk line-of-sight velocity amplitude of the solar mode",
+        default=SOLAR_G1_M2_DEFAULT_SURFACE_VELOCITY_M_S,
+        help="assumed surface velocity amplitude of the solar mode",
     )
     parser.add_argument("--solar-phase", type=float, default=0.0)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
@@ -140,7 +140,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     orbits = make_esa_lisa_orbits(motion_time[-1], args.orbit_dt, args.response_backend)
     orbit_setup_s = time.perf_counter() - tic
     quadrupole_amplitude, solar_calibration = calibrated_solar_g1_m2_quadrupole(
-        args.disk_velocity_m_s, args.solar_phase
+        args.surface_velocity_m_s, args.solar_phase
     )
     source = RetardedQuadrupoleMode(
         angular_frequency=2.0 * np.pi * SOLAR_G1_M2_FREQUENCY_HZ,

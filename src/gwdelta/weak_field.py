@@ -7,12 +7,11 @@ emission from spacecraft ``j``.  The leading fixed-ephemeris observable is
     y = psi_e - psi_r + integral(dt * partial_t P),
 
 where ``P = psi - n.xi - 0.5 * n.H.n`` is evaluated on the zeroth-order photon
-chord. An optional metric-induced endpoint-velocity term can be added. In
+chord. An optional metric-induced endpoint-velocity term can be added. Only
+velocity-independent terms are retained. In
 geometric units, its leading nonrelativistic test-mass equation is
 ``d(delta V_i)/dt = -partial_i psi - partial_t xi_i`` on the supplied
-background trajectory. The
-general O(h v/c) photon-deflection boundary-value problem is intentionally not
-claimed by this implementation.
+background trajectory.
 """
 
 from __future__ import annotations

@@ -34,8 +34,8 @@ SOLAR_MASS_KG = 1.98847e30
 SOLAR_RADIUS_M = 6.957e8
 SOLAR_G1_M2_FREQUENCY_HZ = 2.93e-4
 SOLAR_G1_M2_OVERLAP = 5.38e-3
-SOLAR_G1_M2_UNIT_DISK_VELOCITY_M_S = 1.96e5
-SOLAR_G1_M2_DEFAULT_DISK_VELOCITY_M_S = 1.0e-4
+SOLAR_G1_M2_V2_PER_UNIT_RADIAL_DISPLACEMENT_M_S = 1.96e5
+SOLAR_G1_M2_DEFAULT_SURFACE_VELOCITY_M_S = 1.0e-4
 
 
 def configure_cuda_if_needed(backend: str) -> None:
@@ -92,15 +92,17 @@ def solar_m2_quadrupole(amplitude_kg_m2: float, phase: float) -> np.ndarray:
 
 
 def calibrated_solar_g1_m2_quadrupole(
-    disk_velocity_m_s: float, phase: float
+    surface_velocity_m_s: float, phase: float
 ) -> tuple[np.ndarray, dict[str, float | str]]:
-    """Calibrate the solar l=2, m=2, n=-1 g mode to whole-disk velocity."""
+    """Calibrate the solar l=2, m=2, n=-1 g mode to surface velocity."""
 
-    disk_velocity = float(disk_velocity_m_s)
-    if not np.isfinite(disk_velocity) or disk_velocity <= 0.0:
-        raise ValueError("disk_velocity_m_s must be finite and positive")
+    surface_velocity = float(surface_velocity_m_s)
+    if not np.isfinite(surface_velocity) or surface_velocity <= 0.0:
+        raise ValueError("surface_velocity_m_s must be finite and positive")
 
-    radial_displacement = disk_velocity / SOLAR_G1_M2_UNIT_DISK_VELOCITY_M_S
+    radial_displacement = (
+        surface_velocity / SOLAR_G1_M2_V2_PER_UNIT_RADIAL_DISPLACEMENT_M_S
+    )
     harmonic_coefficient = (
         np.sqrt(15.0 / (4.0 * np.pi))
         * SOLAR_MASS_KG
@@ -125,10 +127,10 @@ def calibrated_solar_g1_m2_quadrupole(
             "rotation omitted"
         ),
         "quadrupole_overlap_J2": SOLAR_G1_M2_OVERLAP,
-        "unit_displacement_disk_velocity_m_s": (
-            SOLAR_G1_M2_UNIT_DISK_VELOCITY_M_S
+        "V2_per_unit_radial_displacement_m_s": (
+            SOLAR_G1_M2_V2_PER_UNIT_RADIAL_DISPLACEMENT_M_S
         ),
-        "assumed_disk_velocity_m_s": disk_velocity,
+        "assumed_surface_velocity_m_s": surface_velocity,
         "dimensionless_radial_displacement": radial_displacement,
         "radial_surface_displacement_m": radial_displacement * SOLAR_RADIUS_M,
         "quadrupole_frobenius_norm_kg_m2": quadrupole_norm,
@@ -137,7 +139,7 @@ def calibrated_solar_g1_m2_quadrupole(
         ),
         "mode_source": "https://arxiv.org/abs/2602.18385",
         "amplitude_source": "https://arxiv.org/abs/astro-ph/9512091",
-        "disk_integration_source": "https://arxiv.org/abs/1210.5525",
+        "surface_velocity_upper_limit_source": "https://arxiv.org/abs/1210.5525",
     }
     return tensor, calibration
 

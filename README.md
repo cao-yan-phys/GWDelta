@@ -8,7 +8,7 @@ GWDelta is a toolkit for fast single-detector and detector-network response calc
 
 The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
 
-Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations. The optional metric-induced endpoint-velocity term is evaluated in the nonrelativistic test-mass approximation.
+Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations. The optional metric-induced endpoint-velocity term is evaluated in the nonrelativistic test-mass approximation, retaining only velocity-independent terms.
 
 ## Example 1
 
@@ -113,7 +113,7 @@ The example below computes the second-generation $A,E$ signals and one-year SNRs
 python examples/lisa_solar_quadrupole_snr_demo.py --years 1 --response-backend cuda12x --publish-figure
 ```
 
-The source is the solar $l=2,m=2,n=-1$ g mode. The updated MESA GS98 model gives $f_Q=0.293\,\mathrm{mHz}$, $J_2=5.38\times10^{-3}$, and $V_2=1.96\times10^5\,\mathrm{m\,s^{-1}}$ ([arXiv:2602.18385](https://arxiv.org/abs/2602.18385)). This is a nonrotating single-mode template: rotational splitting and the associated pattern rotation are not included. The solar g modes remain unconfirmed, and this example adopts the theoretically predicted whole-disk velocity amplitude $0.1\,\mathrm{mm\,s^{-1}}$ ([arXiv:astro-ph/9512091](https://arxiv.org/abs/astro-ph/9512091)), consistent with later predictions ([arXiv:1210.5525](https://arxiv.org/abs/1210.5525)). The solar spin axis follows the [NASA SOHO convention](https://sohoftp.nascom.nasa.gov/sdb/soho/ancillary/). The calculation includes signals due to both the photon propagation and the leading nonrelativistic test mass motion (using the monochromatic forced solution).
+The source is the solar $l=2,m=2,n=-1$ g mode. The updated MESA GS98 model gives $f_Q=0.293\\,\mathrm{mHz}$, $J_2=5.38\times10^{-3}$, and $V_2=1.96\times10^5\\,\mathrm{m\\,s^{-1}}$ ([arXiv:2602.18385](https://arxiv.org/abs/2602.18385)). The model is nonrotating and retains a single $m=2$ component; rotational splitting and the associated pattern rotation are omitted. Solar $g$ modes remain undetected, and this example adopts a surface velocity amplitude of $0.1\\,\mathrm{mm\\,s^{-1}}$, as predicted in [arXiv:astro-ph/9512091](https://arxiv.org/abs/astro-ph/9512091). Later calculations give an upper prediction of $\lesssim0.3\\,\mathrm{mm\\,s^{-1}}$ ([arXiv:1210.5525](https://arxiv.org/abs/1210.5525)). The solar spin axis follows the [NASA SOHO convention](https://sohoftp.nascom.nasa.gov/sdb/soho/ancillary/). The calculation includes both photon propagation and the leading nonrelativistic test-mass motion, using the monochromatic forced solution.
 
 For a one-year observation, the static equal-arm approximation to the second-generation LISA instrumental-noise PSD gives the SNRs $\rho_A=0.01043$, $\rho_E=0.01041$, and $\rho_{AE}\equiv(\rho_A^2+\rho_E^2)^{1/2}=0.01473$.
 
@@ -127,7 +127,7 @@ The example below computes the second-generation $A,E$ signals of a constant-vel
 python examples/lisa_constant_velocity_point_mass_demo.py --years 1 --response-backend cuda12x --publish-figure
 ```
 
-The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation midpoint $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
+The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation midpoint $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
 
 ![Constant-velocity point-mass response with a realistic LISA orbit](docs/figures/lisa_constant_velocity_point_mass_demo.png)
 
@@ -136,7 +136,7 @@ The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation m
 GWDelta evaluates the leading one-way fractional-frequency response of prescribed spacecraft trajectories to a general linear metric perturbation. In SSB coordinates $(t,\mathbf x)$, write
 
 $$
-ds^2=-(1+2\Psi)dt^2+2\Xi_i\,dt\,dx^i
+ds^2=-(1+2\Psi)dt^2+2\Xi_i\\,dt\\,dx^i
 +(\delta_{ij}+H_{ij})dx^i dx^j.
 $$
 
@@ -161,30 +161,30 @@ the one-way fractional-frequency shift is
 $$
 y_{i\leftarrow j}=\Psi_{\mathrm{e}}-\Psi_{\mathrm{r}}
 +\int_{t_{\mathrm{e}}}^{t_{\mathrm{r}}}
-\partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf{k}}]\,dt
+\partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf{k}}]\\,dt
 -\hat{\mathbf{k}}\cdot
 (\delta\mathbf V_{\mathrm{r}}-\delta\mathbf V_{\mathrm{e}}).
 $$
 
-Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Terms explicitly coupling the metric to the background detector velocity, including the corresponding endpoint-displacement and photon-direction boundary-condition terms, are omitted. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
+Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Velocity-dependent terms are omitted, including the endpoint-displacement and photon-direction boundary-condition terms. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
 
-For the optional endpoint term, test mass $A$ follows the leading nonrelativistic equation on its prescribed background trajectory $\mathbf x_A^{(0)}(t)$,
+For the optional endpoint term, test mass $A$ follows the leading nonrelativistic equation on its prescribed background trajectory $\mathbf x_A^{(0)}(t)$, retaining only velocity-independent terms:
 
 $$
-\frac{d\,\delta V_A^i}{dt}
+\frac{d\\,\delta V_A^i}{dt}
 =-\partial_i\Psi\bigl[t,\mathbf x_A^{(0)}(t)\bigr]
 -\partial_t\Xi_i\bigl[t,\mathbf x_A^{(0)}(t)\bigr],
 \qquad
-\frac{d\,\delta x_A^i}{dt}=\delta V_A^i .
+\frac{d\\,\delta x_A^i}{dt}=\delta V_A^i .
 $$
 
-`integrate_test_mass_motion()` integrates these equations with $\delta\mathbf V_A=\delta\mathbf x_A=0$ at the first sample. In the velocity expansion about a mass at rest, $H_{ij}$ has no velocity-independent contribution to this equation; its leading contribution is through terms such as $-(\partial_tH_{ij})V_A^{(0)j}$, together with other $O(hV_{\mathrm{det}})$ terms. All such background-velocity terms are omitted here. `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution.
+`integrate_test_mass_motion()` integrates these equations with $\delta\mathbf V_A=\delta\mathbf x_A=0$ at the first sample. `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution.
 
 The following metric models are built in:
 
 ### `RetardedQuadrupoleMode`
 
-For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\operatorname{Re}\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
+For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\operatorname{Re}\\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
 
 $$
 \begin{aligned}
@@ -258,7 +258,7 @@ e^\times&=\mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a,\\
 e^x&=\mathbf a\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf a,&
 e^y&=\mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b,\\
 e^b&=\mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,&
-e^l&=\sqrt{2}\,\hat{\mathbf k}\otimes\hat{\mathbf k} .
+e^l&=\sqrt{2}\\,\hat{\mathbf k}\otimes\hat{\mathbf k} .
 \end{aligned}
 $$
 
