@@ -191,3 +191,81 @@ class FastLISAResponseTDI:
                 "projection_buffer": int(response.projection_buffer),
             },
         )
+
+    def compute_links(self, t, y_links, *, t0: float | None = None) -> TDIResult:
+        """Apply the configured TDI delays to precomputed one-way signals.
+
+        ``y_links`` must have shape ``(nlinks, nt)`` and follow the link order
+        exposed by ``orbits.LINKS``.  In the local convention, link ``ij`` is
+        received at spacecraft ``i`` after emission from spacecraft ``j``.
+        """
+
+        t_np, dt = _check_uniform_time(t)
+        response, cache_hit = self._get_response(dt=dt, num_pts=len(t_np))
+        if int(response.num_pts) != len(t_np):
+            raise ValueError("the orbit does not cover the full precomputed-link time grid")
+
+        links = response.xp.asarray(y_links, dtype=response.xp.float64)
+        expected_shape = (len(response.response_orbits.LINKS), len(t_np))
+        if links.shape != expected_shape:
+            raise ValueError(
+                f"y_links must have shape {expected_shape} in orbits.LINKS order; got {links.shape}"
+            )
+
+        minimum_buffer = 100.0 + 4.0 * self.order * dt
+        if self.t_buffer < minimum_buffer:
+            raise ValueError(
+                "t_buffer is too short for direct-link TDI interpolation; "
+                f"use at least {minimum_buffer:g} s"
+            )
+
+        start_time = float(t_np[0] if t0 is None else t0)
+        response.t0_projection = None
+        response.tdi_start_ind = int(self.t_buffer / dt)
+        # Some FastLISAResponse releases expose ``y_gw`` in get_tdi_delays()
+        # but still validate it through an uninitialized legacy attribute.
+        # Populate the same internal projection storage explicitly so the
+        # supported TDI kernel is usable across those releases.
+        response.nlinks = expected_shape[0]
+        response.y_gw_flat = links.flatten().copy()
+        response.y_gw_length = len(t_np)
+        channel_values = response.get_tdi_delays(t0=start_time)
+
+        if self.tdi_chan == "XYZ":
+            names = ["X", "Y", "Z"]
+        elif self.tdi_chan == "AET":
+            names = ["A", "E", "T"]
+        elif self.tdi_chan == "AE":
+            names = ["A", "E"]
+        else:
+            raise ValueError("tdi_chan must be 'XYZ', 'AET', or 'AE'")
+
+        channels = dict(zip(names, channel_values))
+        t_out = t_np.copy()
+        if self.trim_garbage:
+            ind = int(response.tdi_start_ind)
+            if 2 * ind >= len(t_out):
+                raise ValueError("t_buffer removes all samples; reduce t_buffer or increase the data length")
+            t_out = t_out[ind:-ind]
+            channels = {key: value[ind:-ind] for key, value in channels.items()}
+
+        return TDIResult(
+            t=t_out,
+            channels=channels,
+            projections=response.y_gw,
+            response_model=response,
+            metadata={
+                "dt": dt,
+                "t0": start_time,
+                "t_buffer": self.t_buffer,
+                "tdi": self.tdi,
+                "tdi_requested": self.tdi_requested,
+                "tdi_chan": self.tdi_chan,
+                "force_backend": self.force_backend,
+                "backend": response.backend.name,
+                "response_cache_hit": cache_hit,
+                "input_kind": "precomputed_links",
+                "link_order": list(response.response_orbits.LINKS),
+                "tdi_start_ind": int(response.tdi_start_ind),
+            },
+        )

@@ -57,6 +57,11 @@ def _default_taiji_accurate_orbit_dir() -> Path | None:
     root = _env_path("GWDELTA_ORBIT_DATA_DIR")
     return None if root is None else root / "MicroSateOrbitEclipticTCB"
 
+
+# gpubackendtools discovers CUDA backends while lisatools is imported.  Make
+# the installed Windows CUDA runtime visible before that one-time discovery.
+ensure_cuda_dll_directories()
+
 try:  # pragma: no cover - optional runtime dependency
     from lisatools.detector import Orbits
     from lisatools.utils.parallelbase import LISAToolsParallelModule

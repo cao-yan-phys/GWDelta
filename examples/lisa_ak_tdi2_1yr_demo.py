@@ -1,7 +1,7 @@
 """One-year eccentric AK waveform through second-generation LISA A/E TDI.
 
 The AK waveform generator is intentionally kept outside the public ``gwdelta``
-source tree.  This example imports it from the sibling ``benchmark_waveforms``
+source tree. This example imports it from the sibling ``waveform_models``
 workspace directory, then uses GWDelta only for orbit construction and TDI.
 """
 
@@ -63,7 +63,7 @@ from gwdelta import (  # noqa: E402
     make_physical_scale,
     select_array_backend,
 )
-from notebook_waveforms import (  # noqa: E402
+from waveform_models.notebook_waveforms import (  # noqa: E402
     NotebookParameters,
     _notebook_omega_ddot_phase_factor,
     _omega_dot_newtonian,
@@ -71,7 +71,7 @@ from notebook_waveforms import (  # noqa: E402
     initial_ak_elements,
     initial_state,
 )
-from pn_qk_waveform import parameters_from_mean_motion_alignment  # noqa: E402
+from waveform_models.pn_qk_waveform import parameters_from_mean_motion_alignment  # noqa: E402
 
 
 SIDEREAL_YEAR_S = 31558149.763545603
@@ -242,7 +242,7 @@ def make_ak_phase_coefficients(params: NotebookParameters, phase_model: str) -> 
     if phase_model != "pn-taylor":
         raise ValueError(f"unknown AK phase model: {phase_model!r}")
 
-    from pn_evolution import pn_dedt_b4, pn_dxdt_b1
+    from waveform_models.pn_evolution import pn_dedt_b4, pn_dxdt_b1
 
     pn_params = parameters_from_mean_motion_alignment(
         mean_motion=init.omega0,
@@ -332,7 +332,7 @@ def generate_ak_polarizations(t_seconds: np.ndarray, args: argparse.Namespace):
     t_code = t_seconds / scale.time_unit_s
     phase_coefficients = make_ak_phase_coefficients(params, args.ak_phase_model)
     if args.response_backend == "cuda12x":
-        from benchmark_waveforms.cupy_ak_waveforms import sample_ak_polarizations_fourier_raw_cuda
+        from waveform_models.benchmark_waveforms.cupy_ak_waveforms import sample_ak_polarizations_fourier_raw_cuda
 
         samples = sample_ak_polarizations_fourier_raw_cuda(
             t_code,
@@ -347,7 +347,7 @@ def generate_ak_polarizations(t_seconds: np.ndarray, args: argparse.Namespace):
         h_cross = samples.h_cross * scale.strain_scale
         sample_backend = "cupy_raw"
     else:
-        from benchmark_waveforms.waveforms import sample_ak_polarizations_fourier
+        from waveform_models.benchmark_waveforms.waveforms import sample_ak_polarizations_fourier
 
         backend = select_array_backend(force="cpu")
         samples = sample_ak_polarizations_fourier(
@@ -408,7 +408,7 @@ def generate_pn_polarizations(t_seconds: np.ndarray, args: argparse.Namespace):
         global_sign=args.pn_global_sign,
     )
     backend = select_array_backend(force="cupy" if args.response_backend == "cuda12x" else "cpu")
-    from benchmark_waveforms.waveforms import sample_evolving_pn_qk
+    from waveform_models.benchmark_waveforms.waveforms import sample_evolving_pn_qk
 
     t_code = t_seconds / scale.time_unit_s
     samples = sample_evolving_pn_qk(

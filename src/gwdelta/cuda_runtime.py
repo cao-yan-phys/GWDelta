@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import ctypes
 import os
 import sys
 from pathlib import Path
 
 _DLL_HANDLES: list[object] = []
 _REGISTERED: set[str] = set()
+_PRELOADED_DLLS: set[str] = set()
 
 
 def _discover_cuda_toolkits() -> list[Path]:
@@ -142,3 +144,20 @@ def ensure_cuda_dll_directories() -> None:
             continue
         _DLL_HANDLES.append(os.add_dll_directory(resolved))
         _REGISTERED.add(resolved)
+
+    # NVRTC loads its builtins library by name at first kernel compilation.
+    # On Windows, changing PATH after process startup and registering a DLL
+    # directory is not sufficient in every CuPy/Python combination, so retain
+    # an explicit handle to the matching toolkit library.
+    if resolved_root is not None:
+        builtins = sorted((resolved_root / "bin").glob("nvrtc-builtins64_*.dll"), reverse=True)
+        for library in builtins[:1]:
+            resolved = str(library.resolve())
+            key = resolved.lower()
+            if key in _PRELOADED_DLLS:
+                continue
+            try:
+                _DLL_HANDLES.append(ctypes.WinDLL(resolved))
+            except OSError:
+                continue
+            _PRELOADED_DLLS.add(key)

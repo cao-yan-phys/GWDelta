@@ -8,6 +8,8 @@ GWDelta is a toolkit for fast single-detector and detector-network response calc
 
 The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
 
+Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear weak gravitational fields. The optional metric-induced endpoint-velocity term is evaluated in the nonrelativistic test-mass approximation.
+
 ## Example 1
 
 The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
@@ -102,6 +104,153 @@ response = net.compute_response(
 A_lisa = response["lisa"].channels["A"]
 E_lisa = response["lisa"].channels["E"]
 ```
+
+## Example 4
+
+The example below computes the second-generation $A,E$ signals and one-year SNRs produced by a monochromatic $l=2,m=2$ component of the Sun's mass quadrupole moment with a realistic LISA orbit:
+
+```bash
+python examples/lisa_solar_quadrupole_snr_demo.py --years 1 --response-backend cuda12x --publish-figure
+```
+
+The source is the solar $l=2,m=2,n=-1$ g mode. The updated MESA GS98 model gives $f_Q=0.293\,\mathrm{mHz}$, $J_2=5.38\times10^{-3}$, and $V_2=1.96\times10^5\,\mathrm{m\,s^{-1}}$ ([arXiv:2602.18385](https://arxiv.org/abs/2602.18385)). This is a nonrotating single-mode template: rotational splitting and the associated pattern rotation are not included. The solar g modes remain unconfirmed, and this example adopts the theoretically predicted whole-disk velocity amplitude $0.1\,\mathrm{mm\,s^{-1}}$ ([arXiv:astro-ph/9512091](https://arxiv.org/abs/astro-ph/9512091)), consistent with later predictions ([arXiv:1210.5525](https://arxiv.org/abs/1210.5525)). The solar spin axis follows the [NASA SOHO convention](https://sohoftp.nascom.nasa.gov/sdb/soho/ancillary/). The calculation includes signals due to both the photon propagation and the leading nonrelativistic test mass motion (using the monochromatic forced solution).
+
+For a one-year observation, the static equal-arm approximation to the second-generation LISA instrumental-noise PSD gives the SNRs $\rho_A=0.01043$, $\rho_E=0.01041$, and $\rho_{AE}\equiv(\rho_A^2+\rho_E^2)^{1/2}=0.01473$.
+
+![Solar-quadrupole response with a realistic LISA orbit](docs/figures/lisa_solar_quadrupole_snr_demo.png)
+
+## Example 5
+
+The example below computes the second-generation $A,E$ signals of a uniformly moving point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions:
+
+```bash
+python examples/lisa_uniform_moving_point_mass_demo.py --years 1 --response-backend cuda12x --publish-figure
+```
+
+The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation midpoint $t_{\rm ref}$, its instantaneous velocity relative to the constellation center is $300\,\mathrm{km\,s^{-1}}$ in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^9\,\mathrm m$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
+
+![Uniformly moving point-mass response with a realistic LISA orbit](docs/figures/lisa_uniform_moving_point_mass_demo.png)
+
+## General Weak-Field Response
+
+GWDelta evaluates the leading one-way fractional-frequency response of prescribed spacecraft trajectories to a linear weak gravitational field. In SSB coordinates $(t,\mathbf x)$, write
+
+$$
+ds^2=-(1+2\Psi)dt^2+2\Xi_i\,dt\,dx^i
++(\delta_{ij}+H_{ij})dx^i dx^j.
+$$
+
+Unless displayed explicitly, the following equations use $c=G=1$. For a link emitted by spacecraft $j$ at $(t_{\rm e},\mathbf x_{\rm e})$ and received by spacecraft $i$ at $(t_{\rm r},\mathbf x_{\rm r})$, define
+
+$$
+L=|\mathbf x_{\rm r}-\mathbf x_{\rm e}|,\qquad
+\hat{\mathbf k}=\frac{\mathbf x_{\rm r}-\mathbf x_{\rm e}}{L},\qquad
+\mathcal P=\Psi-\hat k_a\Xi_a-\frac12 \hat k_a \hat k_bH_{ab}.
+$$
+
+Along the unperturbed photon trajectory
+
+$$
+\mathbf x_\gamma(t)=\mathbf x_{\rm e}
++\frac{t-t_{\rm e}}{t_{\rm r}-t_{\rm e}}
+(\mathbf x_{\rm r}-\mathbf x_{\rm e}),
+$$
+
+the one-way fractional-frequency shift is
+
+$$
+y_{i\leftarrow j}=\Psi_{\rm e}-\Psi_{\rm r}
++\int_{t_{\rm e}}^{t_{\rm r}}
+\partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf k}]\,dt
+-\hat{\mathbf k}\cdot
+(\delta\mathbf V_{\rm r}-\delta\mathbf V_{\rm e}).
+$$
+
+Here $\Psi_{\rm e}=\Psi(t_{\rm e},\mathbf x_{\rm e})$ and $\Psi_{\rm r}=\Psi(t_{\rm r},\mathbf x_{\rm r})$, while $\delta\mathbf V_{\rm e}$ and $\delta\mathbf V_{\rm r}$ are the metric-induced velocity perturbations of the emitter and receiver. Terms explicitly coupling the metric to the background detector velocity, including the corresponding endpoint-displacement and photon-direction boundary-condition terms, are omitted. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
+
+The following metric models are built in:
+
+### `RetardedQuadrupoleMode`
+
+For a source at $\mathbf x_{\rm s}$, define $\mathbf R=\mathbf x-\mathbf x_{\rm s}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\operatorname{Re}\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
+
+$$
+\begin{aligned}
+h^Q_{00}&=n_an_b
+\left(\frac{3I_{ab}}{R^3}+\frac{3\dot I_{ab}}{R^2}
++\frac{\ddot I_{ab}}{R}\right),\\
+\Psi_Q&=-\frac12h^Q_{00},\\
+\Xi^Q_a&=-2n_b
+\left(\frac{\dot I_{ab}}{R^2}+\frac{\ddot I_{ab}}{R}\right),\\
+H^Q_{ab}&=h^Q_{00}\delta_{ab}+\frac{2}{R}\ddot I_{ab}.
+\end{aligned}
+$$
+
+The $R^{-3}$, $R^{-2}$, and $R^{-1}$ terms retain the near, intermediate, and radiation zones of the first-post-Minkowskian quadrupole metric ([arXiv:gr-qc/0603064](https://arxiv.org/abs/gr-qc/0603064)).
+
+`steady_state_test_mass_motion()` evaluates the leading nonrelativistic test-mass motion induced by this monochromatic quadrupole using the steady-state forced solution; general time-dependent fields can be handled by `integrate_test_mass_motion()`.
+
+### `SmoothVaidyaMassLoss`
+
+`SmoothVaidyaMassLoss` is the perturbation relative to the pre-loss static field of the outgoing Vaidya spacetime for spherical null radiation ([Vaidya 1951](https://doi.org/10.1007/BF03173260); [Lindquist, Schwartz, and Misner 1965](https://doi.org/10.1103/PhysRev.137.B1364)). Using the same $\mathbf R$, $R$, $\mathbf n$, and $u$, let $\Delta M>0$ be the lost mass,
+
+$$
+F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},\qquad
+\mathcal U_\Delta=\frac{\Delta M}{R}F(u),
+$$
+
+where $u_0$ and $\tau>0$ set the transition time and width. Relative to the pre-loss static metric,
+
+$$
+\delta\Psi=\mathcal U_\Delta,\qquad
+\delta\Xi_a=2\mathcal U_\Delta n_a,\qquad
+\delta H_{ab}=-2\mathcal U_\Delta n_an_b.
+$$
+
+`acceleration()` and `integrate_test_mass_motion()` provide the same leading nonrelativistic fixed-background endpoint motion used by the other templates.
+
+### `UniformMovingPointMass`
+
+For a particle of rest mass $M$, let $\mathbf z_{\rm ref}$ be its position at $t_{\rm ref}$ and $\mathbf v$ its constant SSB velocity:
+
+$$
+\mathbf z(t)=\mathbf z_{\rm ref}+\mathbf v(t-t_{\rm ref}),\qquad
+\mathbf R=\mathbf x-\mathbf z(t),\qquad R=|\mathbf R|.
+$$
+
+Define $\boldsymbol\beta=\mathbf v/c$, $\beta^2=\boldsymbol\beta\cdot\boldsymbol\beta$, and $\gamma=(1-\beta^2)^{-1/2}$, with
+
+$$
+\rho^2=R^2+\gamma^2(\boldsymbol\beta\cdot\mathbf R)^2,\qquad
+\phi=\frac{M}{\rho}.
+$$
+
+At first post-Minkowskian order in harmonic coordinates,
+
+$$
+\Psi=-(2\gamma^2-1)\phi,\qquad
+\Xi_a=-4\gamma^2\beta_a\phi,\qquad
+H_{ab}=2\phi(\delta_{ab}+2\gamma^2\beta_a\beta_b).
+$$
+
+The photon-propagation term is evaluated analytically and is exact in $\beta$ for any subluminal source speed ([arXiv:gr-qc/9902030](https://arxiv.org/abs/gr-qc/9902030)). `integrate_test_mass_motion()` computes the leading nonrelativistic endpoint-velocity perturbation along prescribed background trajectories.
+
+## Plane-GW Polarizations
+
+For a null plane-wave spatial metric perturbation $h_{ij}=\sum_A h_A e^A_{ij}$, `sky_basis(lam, beta)` returns $(\hat{\mathbf k},\mathbf a,\mathbf b)$, where $(\mathbf a,\mathbf b,\hat{\mathbf k})$ is right-handed and $\hat{\mathbf k}=\mathbf a\times\mathbf b$. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
+
+$$
+\begin{aligned}
+e^+&=\mathbf a\otimes\mathbf a-\mathbf b\otimes\mathbf b,&
+e^\times&=\mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a,\\
+e^x&=\mathbf a\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf a,&
+e^y&=\mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b,\\
+e^b&=\mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,&
+e^l&=\sqrt{2}\,\hat{\mathbf k}\otimes\hat{\mathbf k} .
+\end{aligned}
+$$
+
+They satisfy $e^A_{ij}e^{B}_{ij}=2\delta^{AB}$. `link_fd_polarization_response()` returns the six static one-link transfers, and `StaticTaijiFDResponse.*_polarizations()` coherently combines any subset with keys `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`.
 
 ## Orbit Models and Data Sources
 
