@@ -121,15 +121,15 @@ For a one-year observation, the static equal-arm approximation to the second-gen
 
 ## Example 5
 
-The example below computes the second-generation $A,E$ signals of a uniformly moving point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions:
+The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions:
 
 ```bash
-python examples/lisa_uniform_moving_point_mass_demo.py --years 1 --response-backend cuda12x --publish-figure
+python examples/lisa_constant_velocity_point_mass_demo.py --years 1 --response-backend cuda12x --publish-figure
 ```
 
-The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation midpoint $t_{\rm ref}$, its instantaneous velocity relative to the constellation center is $300\,\mathrm{km\,s^{-1}}$ in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^9\,\mathrm m$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
+The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation midpoint $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
 
-![Uniformly moving point-mass response with a realistic LISA orbit](docs/figures/lisa_uniform_moving_point_mass_demo.png)
+![Constant-velocity point-mass response with a realistic LISA orbit](docs/figures/lisa_constant_velocity_point_mass_demo.png)
 
 ## General Weak-Field Response
 
@@ -140,39 +140,39 @@ ds^2=-(1+2\Psi)dt^2+2\Xi_i\,dt\,dx^i
 +(\delta_{ij}+H_{ij})dx^i dx^j.
 $$
 
-Unless displayed explicitly, the following equations use $c=G=1$. For a link emitted by spacecraft $j$ at $(t_{\rm e},\mathbf x_{\rm e})$ and received by spacecraft $i$ at $(t_{\rm r},\mathbf x_{\rm r})$, define
+The following equations use geometric units. For a link emitted by spacecraft $j$ at $(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and received by spacecraft $i$ at $(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, define
 
 $$
-L=|\mathbf x_{\rm r}-\mathbf x_{\rm e}|,\qquad
-\hat{\mathbf k}=\frac{\mathbf x_{\rm r}-\mathbf x_{\rm e}}{L},\qquad
+L=|\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}|,\qquad
+\hat{\mathbf{k}}=\frac{\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}}{L},\qquad
 \mathcal P=\Psi-\hat k_a\Xi_a-\frac12 \hat k_a \hat k_bH_{ab}.
 $$
 
 Along the unperturbed photon trajectory
 
 $$
-\mathbf x_\gamma(t)=\mathbf x_{\rm e}
-+\frac{t-t_{\rm e}}{t_{\rm r}-t_{\rm e}}
-(\mathbf x_{\rm r}-\mathbf x_{\rm e}),
+\mathbf x_\gamma(t)=\mathbf x_{\mathrm{e}}
++\frac{t-t_{\mathrm{e}}}{t_{\mathrm{r}}-t_{\mathrm{e}}}
+(\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}),
 $$
 
 the one-way fractional-frequency shift is
 
 $$
-y_{i\leftarrow j}=\Psi_{\rm e}-\Psi_{\rm r}
-+\int_{t_{\rm e}}^{t_{\rm r}}
+y_{i\leftarrow j}=\Psi_{\mathrm{e}}-\Psi_{\mathrm{r}}
++\int_{t_{\mathrm{e}}}^{t_{\mathrm{r}}}
 \partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf k}]\,dt
 -\hat{\mathbf k}\cdot
-(\delta\mathbf V_{\rm r}-\delta\mathbf V_{\rm e}).
+(\delta\mathbf V_{\mathrm{r}}-\delta\mathbf V_{\mathrm{e}}).
 $$
 
-Here $\Psi_{\rm e}=\Psi(t_{\rm e},\mathbf x_{\rm e})$ and $\Psi_{\rm r}=\Psi(t_{\rm r},\mathbf x_{\rm r})$, while $\delta\mathbf V_{\rm e}$ and $\delta\mathbf V_{\rm r}$ are the metric-induced velocity perturbations of the emitter and receiver. Terms explicitly coupling the metric to the background detector velocity, including the corresponding endpoint-displacement and photon-direction boundary-condition terms, are omitted. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
+Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Terms explicitly coupling the metric to the background detector velocity, including the corresponding endpoint-displacement and photon-direction boundary-condition terms, are omitted. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
 
 The following metric models are built in:
 
 ### `RetardedQuadrupoleMode`
 
-For a source at $\mathbf x_{\rm s}$, define $\mathbf R=\mathbf x-\mathbf x_{\rm s}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\operatorname{Re}\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
+For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\operatorname{Re}\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
 
 $$
 \begin{aligned}
@@ -209,16 +209,16 @@ $$
 
 `acceleration()` and `integrate_test_mass_motion()` provide the same leading nonrelativistic fixed-background endpoint motion used by the other templates.
 
-### `UniformMovingPointMass`
+### `ConstantVelocityPointMass`
 
-For a particle of rest mass $M$, let $\mathbf z_{\rm ref}$ be its position at $t_{\rm ref}$ and $\mathbf v$ its constant SSB velocity:
+For a particle of rest mass $M$, let $\mathbf z_{\mathrm{ref}}$ be its position at $t_{\mathrm{ref}}$ and $\mathbf v$ its constant SSB velocity:
 
 $$
-\mathbf z(t)=\mathbf z_{\rm ref}+\mathbf v(t-t_{\rm ref}),\qquad
+\mathbf z(t)=\mathbf z_{\mathrm{ref}}+\mathbf v(t-t_{\mathrm{ref}}),\qquad
 \mathbf R=\mathbf x-\mathbf z(t),\qquad R=|\mathbf R|.
 $$
 
-Define $\boldsymbol\beta=\mathbf v/c$, $\beta^2=\boldsymbol\beta\cdot\boldsymbol\beta$, and $\gamma=(1-\beta^2)^{-1/2}$, with
+Define $\boldsymbol\beta=\mathbf v$, $\beta^2=\boldsymbol\beta\cdot\boldsymbol\beta$, and $\gamma=(1-\beta^2)^{-1/2}$, with
 
 $$
 \rho^2=R^2+\gamma^2(\boldsymbol\beta\cdot\mathbf R)^2,\qquad
@@ -233,7 +233,7 @@ $$
 H_{ab}=2\phi(\delta_{ab}+2\gamma^2\beta_a\beta_b).
 $$
 
-The photon-propagation term is evaluated analytically and is exact in $\beta$ for any subluminal source speed ([arXiv:gr-qc/9902030](https://arxiv.org/abs/gr-qc/9902030)). `integrate_test_mass_motion()` computes the leading nonrelativistic endpoint-velocity perturbation along prescribed background trajectories.
+The photon-propagation term is evaluated analytically and is exact in $\beta$ for any subluminal particle speed ([arXiv:gr-qc/9902030](https://arxiv.org/abs/gr-qc/9902030)). `integrate_test_mass_motion()` computes the leading nonrelativistic endpoint-velocity perturbation along prescribed background trajectories.
 
 ## Plane-GW Polarizations
 

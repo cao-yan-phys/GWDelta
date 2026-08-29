@@ -567,7 +567,7 @@ def _xp_for(value):
 
 
 @dataclass(frozen=True, kw_only=True)
-class UniformMovingPointMass:
+class ConstantVelocityPointMass:
     rest_mass_kg: float
     position_at_reference_m: tuple[float, float, float]
     velocity_m_s: tuple[float, float, float]
@@ -1142,7 +1142,7 @@ __all__ = [
     "RetardedQuadrupoleMode",
     "SmoothVaidyaMassLoss",
     "TestMassPerturbation",
-    "UniformMovingPointMass",
+    "ConstantVelocityPointMass",
     "WeakFieldLinkResponse",
     "WeakMetricField",
     "build_link_geometry",
