@@ -178,7 +178,7 @@ $$
 \frac{d\,\delta x_A^i}{dt}=\delta V_A^i .
 $$
 
-`integrate_test_mass_motion()` integrates these equations with $\delta\mathbf V_A=\delta\mathbf x_A=0$ at the first sample. The spatial-metric force and other terms proportional to the background test-mass velocity are beyond this approximation. `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution.
+`integrate_test_mass_motion()` integrates these equations with $\delta\mathbf V_A=\delta\mathbf x_A=0$ at the first sample. In the velocity expansion about a mass at rest, $H_{ij}$ has no velocity-independent contribution to this equation; its leading contribution is through terms such as $-(\partial_tH_{ij})V_A^{(0)j}$, together with other $O(hV_{\mathrm{det}})$ terms. All such background-velocity terms are omitted here. `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution.
 
 The following metric models are built in:
 
