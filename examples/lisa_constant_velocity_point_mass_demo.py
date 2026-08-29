@@ -1,4 +1,4 @@
-"""One-year ESA-LISA response to a uniformly moving point mass."""
+"""One-year ESA-LISA response to a constant-velocity point mass."""
 
 from __future__ import annotations
 
@@ -25,11 +25,11 @@ from weak_field_demo_common import (
     tdi_channels_numpy,
     write_summary,
 )
-from gwdelta import C_SI, G_SI, UniformMovingPointMass, select_array_backend
+from gwdelta import C_SI, ConstantVelocityPointMass, G_SI, select_array_backend
 
 
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "lisa_uniform_moving_point_mass"
-README_FIGURE_NAME = "lisa_uniform_moving_point_mass_demo.png"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "lisa_constant_velocity_point_mass"
+README_FIGURE_NAME = "lisa_constant_velocity_point_mass_demo.png"
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,8 +45,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tdi-order", type=int, default=15)
     parser.add_argument("--t-buffer", type=float, default=10000.0)
     parser.add_argument("--point-mass-kg", type=float, default=1.0e20)
-    parser.add_argument("--flyby-relative-speed-m-s", type=float, default=3.0e5)
-    parser.add_argument("--flyby-impact-parameter-m", type=float, default=5.0e9)
+    parser.add_argument("--flyby-relative-speed-m-s", type=float, default=0.5 * C_SI)
+    parser.add_argument("--flyby-impact-parameter-m", type=float, default=5.0e12)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--save-npz", action="store_true")
     parser.add_argument(
@@ -70,12 +70,12 @@ def interpolate_orbit_worldlines(
     return position, velocity
 
 
-def build_moving_source(
+def build_constant_velocity_source(
     args: argparse.Namespace,
     encounter_time_s: float,
     background_position_m: np.ndarray,
     background_velocity_m_s: np.ndarray,
-) -> tuple[UniformMovingPointMass, dict[str, object]]:
+) -> tuple[ConstantVelocityPointMass, dict[str, object]]:
     if args.flyby_relative_speed_m_s <= 0.0:
         raise ValueError("flyby_relative_speed_m_s must be positive")
     if args.flyby_impact_parameter_m <= 0.0:
@@ -93,7 +93,7 @@ def build_moving_source(
     source_velocity = (
         center_velocity + args.flyby_relative_speed_m_s * relative_direction
     )
-    source = UniformMovingPointMass(
+    source = ConstantVelocityPointMass(
         rest_mass_kg=args.point_mass_kg,
         position_at_reference_m=tuple(source_position),
         velocity_m_s=tuple(source_velocity),
@@ -127,7 +127,7 @@ def compute_tdi_components(
 
 
 def minimum_link_rho(
-    source: UniformMovingPointMass, geometry, chunk_size: int
+    source: ConstantVelocityPointMass, geometry, chunk_size: int
 ) -> float:
     beta = source.beta_vector
     gamma_squared = source.lorentz_factor**2
@@ -195,12 +195,12 @@ def make_figure(
     }
     for name in ("total", "worldline", "direct"):
         frequency_hz, spectra = channel_spectra(components[name]["t"], components[name])
-        combined = np.sqrt(np.abs(spectra["A"]) ** 2 + np.abs(spectra["E"]) ** 2)
+        spectrum_a = np.abs(spectra["A"])
         positive = frequency_hz > 0.0
         color, line_style = styles[name]
         axes[1].loglog(
             frequency_hz[positive],
-            combined[positive],
+            spectrum_a[positive],
             color=color,
             ls=line_style,
             lw=1.0,
@@ -212,7 +212,7 @@ def make_figure(
         )
     axes[1].set_xlim(max(frequency_hz[1], 1.0e-8), min(3.0e-3, frequency_hz[-1]))
     axes[1].set_xlabel(r"$f\,[{\rm Hz}]$")
-    axes[1].set_ylabel(r"$[|\widetilde A|^2+|\widetilde E|^2]^{1/2}\,[{\rm s}]$")
+    axes[1].set_ylabel(r"$|\tilde{A}(f)|\,[{\rm s}]$")
     axes[1].legend(frameon=False)
 
     for axis in axes:
@@ -253,7 +253,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     encounter_velocity = CubicSpline(motion_time, background_velocity, axis=0)(
         encounter_time_s
     )
-    source, source_geometry = build_moving_source(
+    source, source_geometry = build_constant_velocity_source(
         args,
         encounter_time_s,
         encounter_position,
@@ -357,7 +357,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             flyby_timescale_s=flyby_timescale_s,
         )
 
-    npz_path = output_dir / "lisa_uniform_moving_point_mass_demo.npz"
+    npz_path = output_dir / "lisa_constant_velocity_point_mass_demo.npz"
     if args.save_npz:
         np.savez_compressed(
             npz_path,
@@ -371,7 +371,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         )
 
     summary = {
-        "example": "ESA LISA uniform moving point mass",
+        "example": "ESA LISA constant-velocity point mass",
         "orbit": {
             "base": "esa",
             "source": "ESAOrbits from lisatools",
@@ -390,7 +390,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "tdi_generation": "second",
             "tdi_channels": "AE",
         },
-        "uniform_moving_point_mass": {
+        "constant_velocity_point_mass": {
             "rest_mass_kg": float(args.point_mass_kg),
             "relative_speed_m_s": float(args.flyby_relative_speed_m_s),
             "impact_parameter_m": float(args.flyby_impact_parameter_m),
@@ -429,7 +429,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         json.dumps(
             {
                 "minimum_link_rho_m": minimum_rho_m,
-                "maximum_GM_over_c2rho": summary["uniform_moving_point_mass"][
+                "maximum_GM_over_c2rho": summary["constant_velocity_point_mass"][
                     "maximum_GM_over_c2rho"
                 ],
                 "tdi_linearity_relative_l2": tdi_linearity_relative_l2,

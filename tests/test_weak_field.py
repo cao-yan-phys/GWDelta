@@ -11,7 +11,7 @@ from gwdelta import (
     RetardedQuadrupoleMode,
     SampledOrbits,
     SmoothVaidyaMassLoss,
-    UniformMovingPointMass,
+    ConstantVelocityPointMass,
     WeakFieldLinkResponse,
     build_link_geometry,
     link_fd_polarization_response,
@@ -105,10 +105,10 @@ class UniformTimePotential:
         )
 
 
-class NumericalMovingPointMass:
+class NumericalConstantVelocityPointMass:
     """Hide the analytic hook to exercise the general path integrator."""
 
-    def __init__(self, source: UniformMovingPointMass) -> None:
+    def __init__(self, source: ConstantVelocityPointMass) -> None:
         self.source = source
 
     def metric(self, t_s, x_m) -> MetricValues:
@@ -513,7 +513,7 @@ class WeakFieldTests(unittest.TestCase):
 
     def test_moving_point_mass_parameters_and_metric_derivative(self) -> None:
         velocity = C_SI * np.asarray([0.12, -0.04, 0.03])
-        source = UniformMovingPointMass(
+        source = ConstantVelocityPointMass(
             rest_mass_kg=2.0e25,
             position_at_reference_m=(2.0e9, -3.0e9, 1.0e9),
             velocity_m_s=tuple(velocity),
@@ -542,7 +542,7 @@ class WeakFieldTests(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            UniformMovingPointMass(
+            ConstantVelocityPointMass(
                 rest_mass_kg=1.0,
                 position_at_reference_m=(0.0, 0.0, 0.0),
                 velocity_m_s=(C_SI, 0.0, 0.0),
@@ -552,7 +552,7 @@ class WeakFieldTests(unittest.TestCase):
         source_position = np.mean(self.positions, axis=0) + np.asarray(
             [7.0e9, -4.0e9, 3.0e9]
         )
-        source = UniformMovingPointMass(
+        source = ConstantVelocityPointMass(
             rest_mass_kg=3.0e25,
             position_at_reference_m=tuple(source_position),
             velocity_m_s=(0.0, 0.0, 0.0),
@@ -579,7 +579,7 @@ class WeakFieldTests(unittest.TestCase):
         self.assertEqual(result.metadata["direct_evaluation"], "analytic")
 
     def test_moving_point_mass_analytic_links_match_general_integrator(self) -> None:
-        source = UniformMovingPointMass(
+        source = ConstantVelocityPointMass(
             rest_mass_kg=8.0e25,
             position_at_reference_m=tuple(
                 np.mean(self.positions, axis=0) + np.asarray([5.0e9, 4.0e9, 3.0e9])
@@ -592,7 +592,7 @@ class WeakFieldTests(unittest.TestCase):
             orbits=self.orbits, quadrature_order=160, force_backend="cpu"
         )
         analytic = engine.compute(times, source).as_numpy()["direct"]
-        numerical = engine.compute(times, NumericalMovingPointMass(source)).as_numpy()[
+        numerical = engine.compute(times, NumericalConstantVelocityPointMass(source)).as_numpy()[
             "direct"
         ]
         np.testing.assert_allclose(analytic, numerical, rtol=3.0e-11, atol=1.0e-24)
@@ -600,7 +600,7 @@ class WeakFieldTests(unittest.TestCase):
     def test_moving_point_mass_worldline_kick(self) -> None:
         beta = 0.2
         impact_parameter = 1.0e9
-        source = UniformMovingPointMass(
+        source = ConstantVelocityPointMass(
             rest_mass_kg=1.0e25,
             position_at_reference_m=(0.0, 0.0, 0.0),
             velocity_m_s=(beta * C_SI, 0.0, 0.0),
@@ -627,7 +627,7 @@ class WeakFieldTests(unittest.TestCase):
         )
 
     def test_test_mass_perturbation_has_strict_retarded_time_support(self) -> None:
-        source = UniformMovingPointMass(
+        source = ConstantVelocityPointMass(
             rest_mass_kg=1.0e20,
             position_at_reference_m=tuple(
                 np.mean(self.positions, axis=0) + np.asarray([5.0e9, 4.0e9, 3.0e9])
@@ -660,7 +660,7 @@ class WeakFieldTests(unittest.TestCase):
         receiver = geometry.x_reception_m[0, 0]
         direction = geometry.direction[0, 0]
         exterior_source = emitter - 2.0e9 * direction
-        source = UniformMovingPointMass(
+        source = ConstantVelocityPointMass(
             rest_mass_kg=1.0e25,
             position_at_reference_m=tuple(exterior_source),
             velocity_m_s=(0.0, 0.0, 0.0),
@@ -668,7 +668,7 @@ class WeakFieldTests(unittest.TestCase):
         direct = source.direct_link_signal(geometry)
         self.assertTrue(np.all(np.isfinite(direct)))
 
-        intersecting_source = UniformMovingPointMass(
+        intersecting_source = ConstantVelocityPointMass(
             rest_mass_kg=1.0e25,
             position_at_reference_m=tuple(0.5 * (emitter + receiver)),
             velocity_m_s=(0.0, 0.0, 0.0),

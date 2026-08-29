@@ -608,8 +608,8 @@ def _xp_for(value):
 
 
 @dataclass(frozen=True, kw_only=True)
-class UniformMovingPointMass:
-    """Linear field of a uniformly moving point mass, exact in source speed.
+class ConstantVelocityPointMass:
+    """Linear field of a constant-velocity point mass, exact in source speed.
 
     The position is the source position at ``reference_time_s``.  Source speed
     is supplied once, in SI units, so there is no ambiguity between velocity
@@ -1235,7 +1235,7 @@ __all__ = [
     "RetardedQuadrupoleMode",
     "SmoothVaidyaMassLoss",
     "TestMassPerturbation",
-    "UniformMovingPointMass",
+    "ConstantVelocityPointMass",
     "WeakFieldLinkResponse",
     "WeakMetricField",
     "build_link_geometry",

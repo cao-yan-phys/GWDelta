@@ -115,7 +115,7 @@ def make_figure(
         solar_frequency_hz * 20.0,
     )
     axes[1].set_xlabel(r"$f\,[{\rm Hz}]$")
-    axes[1].set_ylabel(r"$|\widetilde A(f)|,\ |\widetilde E(f)|\,[{\rm s}]$")
+    axes[1].set_ylabel(r"$|\tilde{U}(f)|\,[{\rm s}]$")
     axes[1].legend(frameon=False)
 
     for axis in axes:
