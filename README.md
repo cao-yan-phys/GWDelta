@@ -121,13 +121,13 @@ For a one-year observation, the static equal-arm approximation to the second-gen
 
 ## Example 5
 
-The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions:
+The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions [warning: the perturbed orbit is not fully taken into account]:
 
 ```bash
 python examples/lisa_constant_velocity_point_mass_demo.py --years 1 --response-backend cuda12x --publish-figure
 ```
 
-The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation midpoint $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
+The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the reference time $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
 
 ![Constant-velocity point-mass response with a realistic LISA orbit](docs/figures/lisa_constant_velocity_point_mass_demo.png)
 
