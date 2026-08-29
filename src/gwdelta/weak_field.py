@@ -1,13 +1,16 @@
-"""Finite-arm one-way responses to general linear weak metric fields.
+"""Finite-arm one-way responses to general linear metric perturbations.
 
 The module computes a perturbative fractional-frequency residual relative to a
-supplied background orbit.  Link ``ij`` is received at spacecraft ``i`` after
+supplied background orbit. Link ``ij`` is received at spacecraft ``i`` after
 emission from spacecraft ``j``.  The leading fixed-ephemeris observable is
 
     y = psi_e - psi_r + integral(dt * partial_t P),
 
 where ``P = psi - n.xi - 0.5 * n.H.n`` is evaluated on the zeroth-order photon
-chord.  An optional metric-induced endpoint-velocity term can be added.  The
+chord. An optional metric-induced endpoint-velocity term can be added. In
+geometric units, its leading nonrelativistic test-mass equation is
+``d(delta V_i)/dt = -partial_i psi - partial_t xi_i`` on the supplied
+background trajectory. The
 general O(h v/c) photon-deflection boundary-value problem is intentionally not
 claimed by this implementation.
 """
@@ -79,7 +82,7 @@ class LinkGeometry:
 
 @dataclass
 class LinkSignalResult:
-    """Time-domain one-way weak-field residuals."""
+    """Time-domain one-way metric-perturbation residuals."""
 
     t: np.ndarray
     links: tuple[int, ...]
