@@ -62,6 +62,43 @@ class LinkTDITests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "y_links must have shape"):
             response.compute_links(times, np.zeros((5, len(times))))
 
+    def test_time_domain_polarizations_feed_tdi(self) -> None:
+        dt = 2.0
+        times = np.arange(4096, dtype=float) * dt
+        source_time = np.arange(-1200.0, 9400.0, dt)
+        orbits = make_lisa_simple_orbits(
+            duration=9000.0,
+            orbit_dt=60.0,
+            force_backend="cpu",
+        )
+        response = FastLISAResponseTDI(
+            orbits=orbits,
+            order=5,
+            tdi="2nd generation",
+            tdi_chan="AE",
+            force_backend="cpu",
+            t_buffer=1500.0,
+            trim_garbage=True,
+        )
+        phase = 2.0 * np.pi * 0.003 * source_time
+        result = response.compute_polarizations(
+            times,
+            {
+                "plus": 1.0e-21 * np.cos(phase),
+                "vector_x": 0.2e-21 * np.sin(phase),
+            },
+            source_time_s=source_time,
+            lam=0.3,
+            beta=0.4,
+            quadrature_order=8,
+        )
+        arrays = result.as_numpy()
+        self.assertEqual(set(arrays) - {"t", "projections"}, {"A", "E"})
+        self.assertTrue(np.all(np.isfinite(arrays["A"])))
+        self.assertTrue(np.all(np.isfinite(arrays["E"])))
+        self.assertEqual(result.metadata["input_kind"], "sampled_plane_wave_polarizations")
+        self.assertEqual(result.metadata["polarizations"], ["plus", "vector_x"])
+
 
 if __name__ == "__main__":
     unittest.main()

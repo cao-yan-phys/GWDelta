@@ -192,6 +192,59 @@ class FastLISAResponseTDI:
             },
         )
 
+    def compute_polarizations(
+        self,
+        t,
+        h_polarizations,
+        *,
+        lam: float,
+        beta: float,
+        source_time_s=None,
+        reference_position_m=(0.0, 0.0, 0.0),
+        quadrature_order: int = 16,
+        chunk_size: int = 32768,
+        t0: float | None = None,
+    ) -> TDIResult:
+        """Return TDI for sampled E(2) plane-wave polarizations.
+
+        ``h_polarizations`` maps any nonempty subset of the six public
+        polarization names to real time-domain strain arrays. ``source_time_s``
+        gives the SSB time grid of those strains and defaults to ``t``. It must
+        cover all retarded times sampled along the detector links.
+        """
+
+        from .weak_field import PlaneWavePolarizationField, WeakFieldLinkResponse
+
+        t_np, _dt = _check_uniform_time(t)
+        field = PlaneWavePolarizationField(
+            t_np if source_time_s is None else source_time_s,
+            h_polarizations,
+            lam=lam,
+            beta=beta,
+            reference_position_m=reference_position_m,
+        )
+        link_response = WeakFieldLinkResponse(
+            orbits=self.orbits,
+            quadrature_order=quadrature_order,
+            chunk_size=chunk_size,
+            force_backend=self.force_backend,
+        )
+        links = link_response.compute(t_np, field)
+        result = self.compute_links(t_np, links.total, t0=t0)
+        result.metadata.update(
+            {
+                "input_kind": "sampled_plane_wave_polarizations",
+                "polarizations": list(field.polarization_names),
+                "source_time_start_s": field.time_support_s[0],
+                "source_time_stop_s": field.time_support_s[1],
+                "reference_position_m": field.reference_position_m.tolist(),
+                "link_quadrature_order": int(quadrature_order),
+                "link_chunk_size": int(chunk_size),
+                "link_response_backend": links.metadata["backend"],
+            }
+        )
+        return result
+
     def compute_links(self, t, y_links, *, t0: float | None = None) -> TDIResult:
         """Apply the configured TDI delays to precomputed one-way signals.
 

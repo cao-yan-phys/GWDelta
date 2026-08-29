@@ -17,14 +17,20 @@ background trajectory.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 from scipy.interpolate import CubicSpline
 
 from .array_backend import ArrayBackend, infer_backend_from_array, select_array_backend
 from .cuda_runtime import ensure_cuda_dll_directories
-from .fd_response import C_SI, DEFAULT_LINKS
+from .fd_response import (
+    C_SI,
+    DEFAULT_LINKS,
+    POLARIZATION_NAMES,
+    polarization_tensors,
+    sky_basis,
+)
 
 
 G_SI = 6.67430e-11
@@ -118,6 +124,216 @@ class TestMassPerturbation:
             "delta_velocity_m_s": backend.asnumpy(self.delta_velocity_m_s),
             "delta_position_m": backend.asnumpy(self.delta_position_m),
         }
+
+
+class PlaneWavePolarizationField:
+    """Sampled six-polarization null plane wave in synchronous gauge.
+
+    ``h_polarizations`` maps one or more names from ``POLARIZATION_NAMES`` to
+    real strain samples on the uniform SSB time grid ``time_s``. The field
+    evaluates the retarded argument at the requested SSB position, constructs
+    the polarization tensors internally, and supports NumPy or CuPy execution.
+    """
+
+    def __init__(
+        self,
+        time_s,
+        h_polarizations: Mapping[str, Any],
+        *,
+        lam: float,
+        beta: float,
+        reference_position_m=(0.0, 0.0, 0.0),
+    ) -> None:
+        time_host = np.asarray(_to_numpy(time_s), dtype=float)
+        if time_host.ndim != 1 or len(time_host) < 2:
+            raise ValueError("time_s must be a one-dimensional array with at least two samples")
+        if not np.all(np.isfinite(time_host)):
+            raise ValueError("time_s must be finite")
+        steps = np.diff(time_host)
+        dt_s = float(np.median(steps))
+        if dt_s <= 0.0 or not np.allclose(
+            steps, dt_s, rtol=1.0e-11, atol=max(1.0e-12, abs(dt_s) * 1.0e-12)
+        ):
+            raise ValueError("time_s must be strictly increasing and uniform")
+        if not isinstance(h_polarizations, Mapping) or not h_polarizations:
+            raise ValueError("h_polarizations must be a nonempty mapping")
+
+        unknown = [name for name in h_polarizations if name not in POLARIZATION_NAMES]
+        if unknown:
+            raise ValueError(f"unknown polarization names: {unknown}")
+        names = tuple(name for name in POLARIZATION_NAMES if name in h_polarizations)
+        values: dict[str, Any] = {}
+        for name in names:
+            backend = infer_backend_from_array(h_polarizations[name])
+            value = backend.xp.asarray(h_polarizations[name], dtype=backend.xp.float64)
+            if value.ndim != 1 or value.shape[0] != len(time_host):
+                raise ValueError(
+                    f"{name} samples must have shape ({len(time_host)},); got {value.shape}"
+                )
+            if bool(_to_numpy(backend.xp.any(~backend.xp.isfinite(value)))):
+                raise ValueError(f"{name} samples must be finite")
+            values[name] = value
+
+        reference_position = np.asarray(reference_position_m, dtype=float)
+        if reference_position.shape != (3,) or not np.all(np.isfinite(reference_position)):
+            raise ValueError("reference_position_m must be a finite three-vector")
+
+        if not np.isfinite(lam) or not np.isfinite(beta):
+            raise ValueError("lam and beta must be finite")
+        propagation, _a, _b = sky_basis(float(lam), float(beta))
+        tensors = polarization_tensors(float(lam), float(beta))
+        self.time_s = time_s
+        self.h_polarizations = values
+        self.lam = float(lam)
+        self.beta = float(beta)
+        self.reference_position_m = reference_position
+        self.polarization_names = names
+        self._time_host = time_host
+        self._dt_s = dt_s
+        self._propagation = propagation
+        self._tensors = np.stack([tensors[name] for name in names])
+        self._backend_cache: dict[str, tuple[Any, Any, Any, Any, Any, Any]] = {}
+
+    @property
+    def time_support_s(self) -> tuple[float, float]:
+        """Inclusive SSB-time support of the supplied strain samples."""
+
+        return float(self._time_host[0]), float(self._time_host[-1])
+
+    @staticmethod
+    def _uniform_derivative(values, dt_s: float, xp):
+        derivative = xp.empty_like(values)
+        if values.shape[1] == 2:
+            slope = (values[:, 1] - values[:, 0]) / dt_s
+            derivative[:, 0] = slope
+            derivative[:, 1] = slope
+            return derivative
+        derivative[:, 0] = (-3.0 * values[:, 0] + 4.0 * values[:, 1] - values[:, 2]) / (
+            2.0 * dt_s
+        )
+        derivative[:, -1] = (
+            3.0 * values[:, -1] - 4.0 * values[:, -2] + values[:, -3]
+        ) / (2.0 * dt_s)
+        derivative[:, 1:-1] = (values[:, 2:] - values[:, :-2]) / (2.0 * dt_s)
+        return derivative
+
+    def _arrays_for(self, xp):
+        key = xp.__name__
+        cached = self._backend_cache.get(key)
+        if cached is not None:
+            return cached
+        time = xp.asarray(self.time_s, dtype=xp.float64)
+        values = xp.stack(
+            [xp.asarray(self.h_polarizations[name], dtype=xp.float64) for name in self.polarization_names]
+        )
+        derivatives = self._uniform_derivative(values, self._dt_s, xp)
+        tensors = xp.asarray(self._tensors, dtype=xp.float64)
+        propagation = xp.asarray(self._propagation, dtype=xp.float64)
+        reference_position = xp.asarray(self.reference_position_m, dtype=xp.float64)
+        cached = (time, values, derivatives, tensors, propagation, reference_position)
+        self._backend_cache[key] = cached
+        return cached
+
+    def _interpolate(self, query, xp):
+        time, values, derivatives, tensors, propagation, reference_position = self._arrays_for(xp)
+        if bool(_to_numpy(xp.any(~xp.isfinite(query)))):
+            raise ValueError("retarded plane-wave times must be finite")
+        query_min = float(_to_numpy(xp.min(query)))
+        query_max = float(_to_numpy(xp.max(query)))
+        tolerance = 64.0 * np.finfo(float).eps * max(
+            1.0,
+            abs(query_min),
+            abs(query_max),
+            abs(self._time_host[0]),
+            abs(self._time_host[-1]),
+        )
+        if query_min < self._time_host[0] - tolerance or query_max > self._time_host[-1] + tolerance:
+            raise ValueError(
+                "plane-wave time support does not cover the requested retarded times; "
+                "extend time_s or set reference_position_m"
+            )
+
+        index = xp.clip(xp.searchsorted(time, query, side="right") - 1, 0, len(time) - 2)
+        left_time = time[index]
+        interval = time[index + 1] - left_time
+        coordinate = (query - left_time) / interval
+        coordinate2 = coordinate * coordinate
+        coordinate3 = coordinate2 * coordinate
+
+        value_left = values[:, index]
+        value_right = values[:, index + 1]
+        derivative_left = derivatives[:, index]
+        derivative_right = derivatives[:, index + 1]
+        interval_expanded = interval[xp.newaxis, ...]
+        value = (
+            value_left * (2.0 * coordinate3 - 3.0 * coordinate2 + 1.0)[xp.newaxis, ...]
+            + derivative_left
+            * interval_expanded
+            * (coordinate3 - 2.0 * coordinate2 + coordinate)[xp.newaxis, ...]
+            + value_right * (-2.0 * coordinate3 + 3.0 * coordinate2)[xp.newaxis, ...]
+            + derivative_right
+            * interval_expanded
+            * (coordinate3 - coordinate2)[xp.newaxis, ...]
+        )
+        derivative = (
+            value_left * (6.0 * coordinate2 - 6.0 * coordinate)[xp.newaxis, ...]
+            + derivative_left
+            * interval_expanded
+            * (3.0 * coordinate2 - 4.0 * coordinate + 1.0)[xp.newaxis, ...]
+            + value_right * (-6.0 * coordinate2 + 6.0 * coordinate)[xp.newaxis, ...]
+            + derivative_right
+            * interval_expanded
+            * (3.0 * coordinate2 - 2.0 * coordinate)[xp.newaxis, ...]
+        ) / interval_expanded
+        return (
+            xp.moveaxis(value, 0, -1),
+            xp.moveaxis(derivative, 0, -1),
+            tensors,
+            propagation,
+            reference_position,
+        )
+
+    @staticmethod
+    def _broadcast_time_and_position(t_s, x_m, xp):
+        time = xp.asarray(t_s, dtype=xp.float64)
+        position = xp.asarray(x_m, dtype=xp.float64)
+        if position.shape[-1:] != (3,):
+            raise ValueError("x_m must have final dimension 3")
+        try:
+            time = xp.broadcast_to(time, position.shape[:-1])
+        except ValueError as exc:
+            raise ValueError("t_s must broadcast to x_m.shape[:-1]") from exc
+        return time, position
+
+    def _metric_values(self, t_s, x_m, *, derivative: bool) -> MetricValues:
+        backend = infer_backend_from_array(x_m)
+        xp = backend.xp
+        time, position = self._broadcast_time_and_position(t_s, x_m, xp)
+        _support_time, _values, _derivatives, _tensors, propagation, reference_position = self._arrays_for(xp)
+        retarded_time = time - xp.einsum(
+            "...i,i->...", position - reference_position, propagation
+        ) / C_SI
+        samples, sample_derivative, tensors, _propagation, _reference_position = self._interpolate(
+            retarded_time, xp
+        )
+        amplitude = sample_derivative if derivative else samples
+        h = xp.einsum("...a,aij->...ij", amplitude, tensors)
+        zeros = xp.zeros(retarded_time.shape, dtype=xp.float64)
+        return MetricValues(
+            psi=zeros,
+            xi=xp.zeros(retarded_time.shape + (3,), dtype=xp.float64),
+            h=h,
+        )
+
+    def metric(self, t_s, x_m) -> MetricValues:
+        """Return the synchronous-gauge metric perturbation."""
+
+        return self._metric_values(t_s, x_m, derivative=False)
+
+    def time_derivative(self, t_s, x_m) -> MetricValues:
+        """Return the physical-time derivative of the metric perturbation."""
+
+        return self._metric_values(t_s, x_m, derivative=True)
 
 
 def _integrate_sampled_acceleration(
