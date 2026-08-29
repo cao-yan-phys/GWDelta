@@ -8,7 +8,7 @@ GWDelta is a toolkit for fast single-detector and detector-network response calc
 
 The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
 
-Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear weak gravitational fields. The optional metric-induced endpoint-velocity term is evaluated in the nonrelativistic test-mass approximation.
+Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations. The optional metric-induced endpoint-velocity term is evaluated in the nonrelativistic test-mass approximation.
 
 ## Example 1
 
@@ -131,9 +131,9 @@ The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the observation m
 
 ![Constant-velocity point-mass response with a realistic LISA orbit](docs/figures/lisa_constant_velocity_point_mass_demo.png)
 
-## General Weak-Field Response
+## General Metric-Perturbation Response
 
-GWDelta evaluates the leading one-way fractional-frequency response of prescribed spacecraft trajectories to a linear weak gravitational field. In SSB coordinates $(t,\mathbf x)$, write
+GWDelta evaluates the leading one-way fractional-frequency response of prescribed spacecraft trajectories to a general linear metric perturbation. In SSB coordinates $(t,\mathbf x)$, write
 
 $$
 ds^2=-(1+2\Psi)dt^2+2\Xi_i\,dt\,dx^i
@@ -145,7 +145,7 @@ The following equations use geometric units. For a link emitted by spacecraft $j
 $$
 L=|\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}|,\qquad
 \hat{\mathbf{k}}=\frac{\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}}{L},\qquad
-\mathcal P=\Psi-\hat k_a\Xi_a-\frac12 \hat k_a \hat k_bH_{ab}.
+\mathcal P=\Psi-\hat{\mathbf{k}}_a\Xi_a-\frac12 \hat{\mathbf{k}}_a \hat{\mathbf{k}}_bH_{ab}.
 $$
 
 Along the unperturbed photon trajectory
@@ -161,12 +161,24 @@ the one-way fractional-frequency shift is
 $$
 y_{i\leftarrow j}=\Psi_{\mathrm{e}}-\Psi_{\mathrm{r}}
 +\int_{t_{\mathrm{e}}}^{t_{\mathrm{r}}}
-\partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf k}]\,dt
--\hat{\mathbf k}\cdot
+\partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf{k}}]\,dt
+-\hat{\mathbf{k}}\cdot
 (\delta\mathbf V_{\mathrm{r}}-\delta\mathbf V_{\mathrm{e}}).
 $$
 
 Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Terms explicitly coupling the metric to the background detector velocity, including the corresponding endpoint-displacement and photon-direction boundary-condition terms, are omitted. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
+
+For the optional endpoint term, test mass $A$ follows the leading nonrelativistic equation on its prescribed background trajectory $\mathbf x_A^{(0)}(t)$,
+
+$$
+\frac{d\,\delta V_A^i}{dt}
+=-\partial_i\Psi\bigl[t,\mathbf x_A^{(0)}(t)\bigr]
+-\partial_t\Xi_i\bigl[t,\mathbf x_A^{(0)}(t)\bigr],
+\qquad
+\frac{d\,\delta x_A^i}{dt}=\delta V_A^i .
+$$
+
+`integrate_test_mass_motion()` integrates these equations with $\delta\mathbf V_A=\delta\mathbf x_A=0$ at the first sample. The spatial-metric force and other terms proportional to the background test-mass velocity are beyond this approximation. `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution.
 
 The following metric models are built in:
 
