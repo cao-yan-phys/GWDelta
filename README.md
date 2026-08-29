@@ -205,6 +205,7 @@ The $R^{-3}$, $R^{-2}$, and $R^{-1}$ contributions are, respectively, the near-,
 ### `SmoothVaidyaMassLoss`
 
 `SmoothVaidyaMassLoss` is the perturbation relative to the pre-loss static field of the outgoing Vaidya spacetime for spherical null radiation ([Vaidya 1951](https://doi.org/10.1007/BF03173260); [Lindquist, Schwartz, and Misner 1965](https://doi.org/10.1103/PhysRev.137.B1364)). With $\mathbf x_{\mathrm{s}}$ its origin, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. For $\Delta M>0$,
+
 $$
 F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},\qquad
 \mathcal U_\Delta=\frac{\Delta M}{R}F(u),
@@ -261,7 +262,7 @@ e^l&=\sqrt{2}\\,\hat{\mathbf k}\otimes\hat{\mathbf k} .
 \end{aligned}
 $$
 
-They satisfy $e^A_{ij}e^{B}_{ij}=2\delta^{AB}$. In the static equal-arm approximation, `link_fd_polarization_response()` returns the six one-link frequency-domain response functions $R^A_{ij}(f)$. Pass a nonempty mapping of spectra, keyed by `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`, to `StaticTaijiFDResponse.xyz_polarizations()`, `.aet_polarizations()`, or `.ae_polarizations()` to obtain the corresponding response. For a prescribed orbit, `FastLISAResponseTDI.compute_polarizations()` takes a mapping of sampled time-domain strains under one or more of the six keys above, constructs the associated tensors internally, and returns the TDI response. The `source_time_s` grid must cover all retarded SSB times evaluated along the links.
+They satisfy $e^A_{ij} e^B_{ij}=2\delta^{AB}$. In the static equal-arm approximation, `link_fd_polarization_response()` returns the six one-link frequency-domain response functions $R^A_{ij}(f)$. Pass a nonempty mapping of spectra, keyed by `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`, to `StaticTaijiFDResponse.xyz_polarizations()`, `.aet_polarizations()`, or `.ae_polarizations()` to obtain the corresponding response. For a prescribed orbit, `FastLISAResponseTDI.compute_polarizations()` takes a mapping of sampled time-domain strains under one or more of the six keys above, constructs the associated tensors internally, and returns the TDI response. The `source_time_s` grid must cover all retarded SSB times evaluated along the links.
 
 ## Orbit Models and Data Sources
 
