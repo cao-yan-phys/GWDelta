@@ -175,7 +175,7 @@ $$
 =-\partial_i\Psi\bigl[t,\mathbf x_A^{(0)}(t)\bigr]
 -\partial_t\Xi_i\bigl[t,\mathbf x_A^{(0)}(t)\bigr],
 \qquad
-\frac{d\,\delta V_A^i}{dt}=\delta a_A^i .
+\frac{d\\,\delta V_A^i}{dt}=\delta a_A^i .
 $$
 
 The resulting $\delta\mathbf V_A$ is used in the endpoint Doppler term. `integrate_test_mass_motion()` sets $\delta\mathbf V_A=0$ at the first sample; `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution. Position perturbations and their effects on link geometry, endpoint events, and the photon chord are not computed.
