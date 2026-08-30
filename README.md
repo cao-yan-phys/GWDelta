@@ -388,3 +388,5 @@ The `tdi_chan` selector keeps the existing output naming convention. `XYZ` means
 For static equal-arm models, `gwdelta.noise` provides one-way instrumental-noise PSDs, TDI1/TDI2 A/E/T PSDs, and their diagonal inverse covariance. For static unequal arms, `gwdelta.tdi_noise` provides full TDI2 instrumental-noise CSDs ([arXiv:2111.00975](https://arxiv.org/abs/2111.00975)) in the `XYZ` or `AET` basis through `frozen_tdi2_noise_covariance()`.
 
 ![Frozen unequal-arm LISA TDI2 noise PSDs](docs/figures/lisa_tdi2_unequal_arm_noise_psd.png)
+
+![Frozen unequal-arm LISA TDI2 noise PSDs, linear ordinate](docs/figures/lisa_tdi2_unequal_arm_noise_psd_linear.png)
