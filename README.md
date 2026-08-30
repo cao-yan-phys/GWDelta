@@ -8,7 +8,7 @@ GWDelta is a toolkit for fast single-detector and detector-network response calc
 
 The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
 
-Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations in the nonrelativistic test-mass approximation.
+Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations in the fixed-background-trajectory nonrelativistic test-mass approximation.
 
 ## Example 1
 
@@ -168,17 +168,17 @@ $$
 
 Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Velocity-dependent terms are omitted, including the endpoint-displacement and photon-direction boundary-condition terms. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
 
-For the optional endpoint term, test mass $A$ follows the leading nonrelativistic equation on its prescribed background trajectory $\mathbf x_A^{(0)}(t)$, retaining only velocity-independent terms:
+For the optional endpoint term, GWDelta evaluates the velocity-independent perturbing acceleration along a prescribed background trajectory $\mathbf x_A^{(0)}(t)$:
 
 $$
-\frac{d\\,\delta V_A^i}{dt}
+\delta a_A^i(t)
 =-\partial_i\Psi\bigl[t,\mathbf x_A^{(0)}(t)\bigr]
 -\partial_t\Xi_i\bigl[t,\mathbf x_A^{(0)}(t)\bigr],
 \qquad
-\frac{d\\,\delta x_A^i}{dt}=\delta V_A^i .
+\frac{d\,\delta V_A^i}{dt}=\delta a_A^i .
 $$
 
-`integrate_test_mass_motion()` integrates these equations with $\delta\mathbf V_A=\delta\mathbf x_A=0$ at the first sample. `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution.
+The resulting $\delta\mathbf V_A$ is used in the endpoint Doppler term. `integrate_test_mass_motion()` sets $\delta\mathbf V_A=0$ at the first sample; `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution. Position perturbations and their effects on link geometry, endpoint events, and the photon chord are not computed.
 
 The following metric models are built in:
 

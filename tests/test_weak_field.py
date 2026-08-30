@@ -625,6 +625,7 @@ class WeakFieldTests(unittest.TestCase):
         np.testing.assert_allclose(
             kick, [0.0, expected_y, 0.0], rtol=5.0e-6, atol=2.0e-12
         )
+        self.assertNotIn("delta_position_m", perturbation.as_numpy())
 
     def test_test_mass_perturbation_has_strict_retarded_time_support(self) -> None:
         source = ConstantVelocityPointMass(

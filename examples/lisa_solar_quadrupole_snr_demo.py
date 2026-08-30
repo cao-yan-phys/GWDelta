@@ -258,9 +258,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
                 "max_abs_delta_velocity_m_s": float(
                     np.max(np.abs(as_numpy(motion.delta_velocity_m_s)))
                 ),
-                "max_abs_delta_position_m": float(
-                    np.max(np.abs(as_numpy(motion.delta_position_m)))
-                ),
                 "annual_to_source_angular_frequency_ratio": float(
                     (2.0 * np.pi / (365.256363004 * DAY_S))
                     / source.angular_frequency
