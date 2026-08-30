@@ -66,6 +66,12 @@ from .noise import (
     one_way_noise_psd,
     positive_psd_frequency,
 )
+from .tdi_noise import (
+    frozen_tdi2_detector_noise_covariance,
+    frozen_tdi2_light_times_from_positions,
+    frozen_tdi2_noise_covariance,
+    frozen_tdi2_t_low_frequency_leakage,
+)
 from .orbits import (
     OrbitArrays,
     OrbitSpec,
@@ -185,6 +191,10 @@ __all__ = [
     "fd_static_taiji_ae",
     "fd_static_taiji_ae_polarizations",
     "first_generation_xyz_from_links",
+    "frozen_tdi2_detector_noise_covariance",
+    "frozen_tdi2_light_times_from_positions",
+    "frozen_tdi2_noise_covariance",
+    "frozen_tdi2_t_low_frequency_leakage",
     "get_noise_model",
     "hybrid_relay_uubar_combinations",
     "infer_frequency_spacing",
