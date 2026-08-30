@@ -166,9 +166,9 @@ y_{i\leftarrow j}=\Psi_{\mathrm{e}}-\Psi_{\mathrm{r}}
 (\delta\mathbf V_{\mathrm{r}}-\delta\mathbf V_{\mathrm{e}}).
 $$
 
-Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Velocity-dependent terms are omitted, including the endpoint-displacement and photon-direction boundary-condition terms. GWDelta evaluates this response for any field supplied through `metric()` and `time_derivative()`. Link `ij` is received at `i` after emission from `j`; the link order is `12,23,31,13,32,21`.
+Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Velocity-dependent terms are omitted. GWDelta evaluates the direct response from the metric components $\Psi$, $\Xi_i$, and $H_{ij}$ and their time derivatives supplied by the model. The directed link $y_{i\leftarrow j}$ is received at spacecraft $i$ after emission from spacecraft $j$; the link order is `12,23,31,13,32,21`.
 
-For the optional endpoint term, GWDelta evaluates the velocity-independent perturbing acceleration along a prescribed background trajectory $\mathbf x_A^{(0)}(t)$:
+For the optional endpoint term, the velocity perturbation along a prescribed background trajectory $\mathbf x_A^{(0)}(t)$ obeys
 
 $$
 \delta a_A^i(t)
@@ -178,7 +178,7 @@ $$
 \frac{d\\,\delta V_A^i}{dt}=\delta a_A^i .
 $$
 
-The resulting $\delta\mathbf V_A$ is used in the endpoint Doppler term. `integrate_test_mass_motion()` sets $\delta\mathbf V_A=0$ at the first sample; `RetardedQuadrupoleMode.steady_state_test_mass_motion()` instead uses the monochromatic forced solution. Position perturbations and their effects on link geometry, endpoint events, and the photon chord are not computed.
+The resulting $\delta\mathbf V_A$ enters the endpoint Doppler term.
 
 The following metric models are built in:
 
@@ -200,7 +200,7 @@ $$
 
 The $R^{-3}$, $R^{-2}$, and $R^{-1}$ contributions are, respectively, the near-, intermediate-, and radiation-zone parts of the first-post-Minkowskian quadrupole metric ([arXiv:gr-qc/0603064](https://arxiv.org/abs/gr-qc/0603064)).
 
-`steady_state_test_mass_motion()` evaluates the leading nonrelativistic test-mass motion driven by $I_{ab}(u)$ defined above, using the steady-state forced solution; general time-dependent fields can be handled by `integrate_test_mass_motion()`.
+For this monochromatic template, `steady_state_test_mass_motion()` evaluates the leading nonrelativistic test-mass motion driven by $I_{ab}(u)$ using the steady-state forced solution.
 
 ### `SmoothVaidyaMassLoss`
 
@@ -219,7 +219,6 @@ $$
 \delta H_{ab}=-2\mathcal U_\Delta n_an_b.
 $$
 
-`acceleration()` and `integrate_test_mass_motion()` provide the same leading nonrelativistic fixed-background endpoint motion used by the other templates.
 
 ### `ConstantVelocityPointMass`
 
@@ -245,7 +244,7 @@ $$
 H_{ab}=2\phi(\delta_{ab}+2\gamma^2\beta_a\beta_b).
 $$
 
-The photon-propagation term is evaluated analytically and is exact in $\beta$ for any subluminal particle speed ([arXiv:gr-qc/9902030](https://arxiv.org/abs/gr-qc/9902030)). `integrate_test_mass_motion()` computes the leading nonrelativistic endpoint-velocity perturbation along prescribed background trajectories.
+The photon-propagation term is evaluated analytically and is exact in $\beta$ ([arXiv:gr-qc/9902030](https://arxiv.org/abs/gr-qc/9902030)).
 
 ## Plane-GW Polarizations
 
