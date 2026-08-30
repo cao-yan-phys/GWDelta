@@ -83,7 +83,6 @@ class TestMassPerturbation:
     t: Any
     acceleration_m_s2: Any
     delta_velocity_m_s: Any
-    delta_position_m: Any
 
     def as_numpy(self) -> dict[str, np.ndarray]:
         backend = infer_backend_from_array(self.delta_velocity_m_s)
@@ -91,7 +90,6 @@ class TestMassPerturbation:
             "t": backend.asnumpy(self.t),
             "acceleration_m_s2": backend.asnumpy(self.acceleration_m_s2),
             "delta_velocity_m_s": backend.asnumpy(self.delta_velocity_m_s),
-            "delta_position_m": backend.asnumpy(self.delta_position_m),
         }
 
 
@@ -297,7 +295,6 @@ def _integrate_sampled_acceleration(
     acceleration_m_s2,
     *,
     initial_delta_velocity_m_s=None,
-    initial_delta_position_m=None,
 ) -> TestMassPerturbation:
     xp = _xp_for(background_position_m)
     t = xp.asarray(t_s, dtype=xp.float64)
@@ -327,7 +324,6 @@ def _integrate_sampled_acceleration(
     delta_v0 = initial_value(
         initial_delta_velocity_m_s, "initial_delta_velocity_m_s"
     )
-    delta_x0 = initial_value(initial_delta_position_m, "initial_delta_position_m")
     dt_shape = (len(dt),) + (1,) * (acceleration.ndim - 1)
     velocity_steps = 0.5 * (acceleration[1:] + acceleration[:-1]) * dt.reshape(
         dt_shape
@@ -339,21 +335,10 @@ def _integrate_sampled_acceleration(
         ],
         axis=0,
     )
-    position_steps = 0.5 * (delta_velocity[1:] + delta_velocity[:-1]) * dt.reshape(
-        dt_shape
-    )
-    delta_position = xp.concatenate(
-        [
-            delta_x0[xp.newaxis, ...],
-            delta_x0[xp.newaxis, ...] + xp.cumsum(position_steps, axis=0),
-        ],
-        axis=0,
-    )
     return TestMassPerturbation(
         t=t,
         acceleration_m_s2=acceleration,
         delta_velocity_m_s=delta_velocity,
-        delta_position_m=delta_position,
     )
 
 
@@ -896,7 +881,6 @@ class ConstantVelocityPointMass:
         background_position_m,
         *,
         initial_delta_velocity_m_s=None,
-        initial_delta_position_m=None,
     ) -> TestMassPerturbation:
         xp = _xp_for(background_position_m)
         t = xp.asarray(t_s, dtype=xp.float64)
@@ -906,7 +890,6 @@ class ConstantVelocityPointMass:
             position,
             self.acceleration(t, position),
             initial_delta_velocity_m_s=initial_delta_velocity_m_s,
-            initial_delta_position_m=initial_delta_position_m,
         )
 
     def direct_link_signal(
@@ -1222,16 +1205,10 @@ class RetardedQuadrupoleMode:
             / self.angular_frequency
             * phase[..., xp.newaxis]
         )
-        delta_position = xp.real(
-            -acceleration_amplitude
-            / self.angular_frequency**2
-            * phase[..., xp.newaxis]
-        )
         return TestMassPerturbation(
             t=t,
             acceleration_m_s2=acceleration,
             delta_velocity_m_s=delta_velocity,
-            delta_position_m=delta_position,
         )
 
 
@@ -1320,7 +1297,6 @@ class SmoothVaidyaMassLoss:
         background_position_m,
         *,
         initial_delta_velocity_m_s=None,
-        initial_delta_position_m=None,
     ) -> TestMassPerturbation:
         xp = _xp_for(background_position_m)
         t = xp.asarray(t_s, dtype=xp.float64)
@@ -1330,7 +1306,6 @@ class SmoothVaidyaMassLoss:
             position,
             self.acceleration(t, position),
             initial_delta_velocity_m_s=initial_delta_velocity_m_s,
-            initial_delta_position_m=initial_delta_position_m,
         )
 
 
