@@ -8,7 +8,7 @@ GWDelta is a toolkit for fast single-detector and detector-network response calc
 
 The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
 
-Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations. The optional metric-induced endpoint-velocity term is evaluated in the nonrelativistic test-mass approximation, retaining only velocity-independent terms.
+Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations in the nonrelativistic test-mass approximation.
 
 ## Example 1
 
@@ -26,7 +26,7 @@ The example below compares three Taiji response calculations for a precessing qu
 
 ## Example 2
 
-The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two LISA response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
+The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two LISA TDI2 response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
 
 Binary masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$ .
 
@@ -40,7 +40,7 @@ The parameters of the AK and PN models are matched initially. The PN model uses 
 
 ## Example 3
 
-The script below computes the $A,E$-channel SNR of a monochromatic elliptically polarized source with time-domain TDI responses and the built-in instrumental-noise PSDs:
+The script below computes the $A,E$-channel SNR of a monochromatic elliptically polarized source with time-domain TDI2 responses and the built-in instrumental-noise PSDs:
 
 ```bash
 python examples/monochromatic_snr_time_domain.py --years 1 --frequency 0.003 --amplitude 1e-22 --detectors all --response-backend cuda12x
@@ -249,8 +249,7 @@ The photon-propagation term is evaluated analytically and is exact in $\beta$ fo
 
 ## Plane-GW Polarizations
 
-For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_{ij}=\sum_A h_A e^A_{ij}$, `sky_basis(lam, beta)` returns the propagation direction $\hat{\mathbf k}$ and transverse vectors $\mathbf a,\mathbf b$; $(\mathbf a,\mathbf b,\hat{\mathbf k})$ is a right-handed orthonormal triad. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
-
+For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_{ij}=\sum_A h_A e^A_{ij}$, `lam` and `beta` are respectively the ecliptic longitude and latitude of the source direction $-\hat{\mathbf k}$ in the SSB frame. `sky_basis(lam, beta)` returns the right-handed orthonormal triad $(\hat{\mathbf k},\mathbf a,\mathbf b)$. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
 $$
 \begin{aligned}
 e^+&=\mathbf a\otimes\mathbf a-\mathbf b\otimes\mathbf b,&
@@ -384,3 +383,9 @@ hybrid_relay = FastLISAResponseTDI(
 ```
 
 The `tdi_chan` selector keeps the existing output naming convention. `XYZ` means the selected ordinary triplet before A/E/T rotation; the actual delay combination is selected by `tdi`.
+
+For static equal-arm models, `gwdelta.noise` provides one-way instrumental-noise PSDs, TDI1/TDI2 A/E/T PSDs, and their diagonal inverse covariance. For static unequal arms, `gwdelta.tdi_noise` provides full TDI2 instrumental-noise CSDs in the `XYZ` or `AET` basis through `frozen_tdi2_noise_covariance()`.
+
+The colored curves use 25 frozen epochs of the ESA numerical LISA orbit over one sidereal year; the black dashed curves show the static equal-arm (SEA) TDI2 PSD.
+
+![Frozen unequal-arm LISA TDI2 noise PSDs](docs/figures/lisa_tdi2_unequal_arm_noise_psd.png)
