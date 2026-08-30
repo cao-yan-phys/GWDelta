@@ -385,6 +385,6 @@ hybrid_relay = FastLISAResponseTDI(
 
 The `tdi_chan` selector keeps the existing output naming convention. `XYZ` means the selected ordinary triplet before A/E/T rotation; the actual delay combination is selected by `tdi`.
 
-For static equal-arm models, `gwdelta.noise` provides one-way instrumental-noise PSDs, TDI1/TDI2 A/E/T PSDs, and their diagonal inverse covariance. For static unequal arms, `gwdelta.tdi_noise` provides full TDI2 instrumental-noise CSDs in the `XYZ` or `AET` basis through `frozen_tdi2_noise_covariance()` ([arXiv:2111.00975](https://arxiv.org/abs/2111.00975)).
+For static equal-arm models, `gwdelta.noise` provides one-way instrumental-noise PSDs, TDI1/TDI2 A/E/T PSDs, and their diagonal inverse covariance. For static unequal arms, `gwdelta.tdi_noise` provides full TDI2 instrumental-noise CSDs ([arXiv:2111.00975](https://arxiv.org/abs/2111.00975)) in the `XYZ` or `AET` basis through `frozen_tdi2_noise_covariance()`.
 
 ![Frozen unequal-arm LISA TDI2 noise PSDs](docs/figures/lisa_tdi2_unequal_arm_noise_psd.png)
