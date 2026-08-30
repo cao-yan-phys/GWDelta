@@ -250,14 +250,15 @@ The photon-propagation term is evaluated analytically and is exact in $\beta$ fo
 ## Plane-GW Polarizations
 
 For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_{ij}=\sum_A h_A e^A_{ij}$, `lam` and `beta` are respectively the ecliptic longitude and latitude of the source direction $-\hat{\mathbf k}$ in the SSB frame. `sky_basis(lam, beta)` returns the right-handed orthonormal triad $(\hat{\mathbf k},\mathbf a,\mathbf b)$. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
+
 $$
 \begin{aligned}
-e^+&=\mathbf a\otimes\mathbf a-\mathbf b\otimes\mathbf b,&
-e^\times&=\mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a,\\
-e^x&=\mathbf a\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf a,&
-e^y&=\mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b,\\
-e^b&=\mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,&
-e^l&=\sqrt{2}\\,\hat{\mathbf k}\otimes\hat{\mathbf k} .
+e^{+} &= \mathbf a\otimes\mathbf a-\mathbf b\otimes\mathbf b,
+& e^{\times} &= \mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a \\
+e^{x} &= \mathbf a\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf a,
+& e^{y} &= \mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b \\
+e^{b} &= \mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,
+& e^{l} &= \sqrt{2}\hat{\mathbf k}\otimes\hat{\mathbf k}.
 \end{aligned}
 $$
 
