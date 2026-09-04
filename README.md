@@ -184,17 +184,17 @@ The following metric models are built in:
 
 ### `RetardedQuadrupoleMode`
 
-For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\mathrm{Re}\\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$.
+For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\mathrm{Re}\\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$. The model is
 
 $$
 \begin{aligned}
-h^Q_{00}&=n_an_b
+h_{00}&=n_an_b
 \left(\frac{3I_{ab}}{R^3}+\frac{3\dot I_{ab}}{R^2}
 +\frac{\ddot I_{ab}}{R}\right),\\
-\Psi_Q&=-\frac12h^Q_{00},\\
-\Xi^Q_a&=-2n_b
+\Psi&=-\frac12h_{00},\\
+\Xi_a&=-2n_b
 \left(\frac{\dot I_{ab}}{R^2}+\frac{\ddot I_{ab}}{R}\right),\\
-H^Q_{ab}&=h^Q_{00}\delta_{ab}+\frac{2}{R}\ddot I_{ab}.
+H_{ab}&=h_{00}\delta_{ab}+\frac{2}{R}\ddot I_{ab}.
 \end{aligned}
 $$
 
@@ -204,25 +204,32 @@ For this monochromatic template, `steady_state_test_mass_motion()` evaluates the
 
 ### `SmoothVaidyaMassLoss`
 
-`SmoothVaidyaMassLoss` is the perturbation relative to the pre-loss static field of the outgoing Vaidya spacetime for spherical null radiation ([Vaidya 1951](https://doi.org/10.1007/BF03173260); [Lindquist, Schwartz, and Misner 1965](https://doi.org/10.1103/PhysRev.137.B1364)). With $\mathbf x_{\mathrm{s}}$ its origin, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. For $\Delta M>0$,
+Following [Vaidya (1951)](https://doi.org/10.1007/BF03173260) and [Lindquist, Schwartz, and Misner (1965)](https://doi.org/10.1103/PhysRev.137.B1364), the exact outgoing Vaidya line element for spherically symmetric null radiation is
 
 $$
-F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},\qquad
-\mathcal U_\Delta=\frac{\Delta M}{R}F(u),
+ds^2=-\left[1-\frac{2M(u)}{R}\right]du^2-2\\,du\\,dR+R^2(d\theta^2+\sin^2\theta\\,d\phi^2).
 $$
 
-where $u_0$ and $\tau>0$ set the transition time and width. Relative to the pre-loss static metric,
+Here $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, $u=t-R$, and $M(u)=M_{\mathrm i}-\Delta M F(u)$, with $\Delta M>0$ and
 
 $$
-\delta\Psi=\mathcal U_\Delta,\qquad
-\delta\Xi_a=2\mathcal U_\Delta n_a,\qquad
-\delta H_{ab}=-2\mathcal U_\Delta n_an_b.
+F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},
 $$
+
+where $u_0$ and $\tau>0$ set the transition time and width. With $t=u+R$, in the weak-field regime,
+
+$$
+\Psi=-\frac{M(u)}{R},\qquad
+\Xi_a=-\frac{2M(u)}{R}n_a,\qquad
+H_{ab}=\frac{2M(u)}{R}n_an_b.
+$$
+
+`SmoothVaidyaMassLoss` omits the initial mass $M_{\mathrm i}$ in $M(u)=M_{\mathrm i}-\Delta M F(u)$.
 
 
 ### `ConstantVelocityPointMass`
 
-For a particle of rest mass $M$, let $\mathbf z_{\mathrm{ref}}$ be its position at $t_{\mathrm{ref}}$ and $\mathbf v$ its constant SSB velocity:
+For a particle of rest mass $M$, let $\mathbf z_{\mathrm{ref}}$ be its position at $t_{\mathrm{ref}}$ and $\mathbf v$ its (constant) velocity in the SSB frame:
 
 $$
 \mathbf z(t)=\mathbf z_{\mathrm{ref}}+\mathbf v(t-t_{\mathrm{ref}}),\qquad
