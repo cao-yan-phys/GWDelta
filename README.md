@@ -15,7 +15,7 @@ Besides plane gravitational waves, GWDelta can also calculate TDI signals from g
 The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
 
 - second-generation $A,E$ channels with a realistic Taiji orbit;
-- second-generation $A,E$ channels with a static equal-arm orbit;
+- second-generation $A,E$ channels with a static equal-arm (SEA) orbit;
 - an analytic static equal-arm frequency-domain response.
 
 ![Taiji TDI response comparison](docs/figures/taiji_static_tdi2_memory_demo.png)
@@ -166,7 +166,7 @@ y_{i\leftarrow j}=\Psi_{\mathrm{e}}-\Psi_{\mathrm{r}}
 (\delta\mathbf V_{\mathrm{r}}-\delta\mathbf V_{\mathrm{e}}).
 $$
 
-Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. Velocity-dependent terms are omitted. GWDelta evaluates the direct response from the metric components $\Psi$, $\Xi_i$, and $H_{ij}$ and their time derivatives supplied by the model. The directed link $y_{i\leftarrow j}$ is received at spacecraft $i$ after emission from spacecraft $j$; the link order is `12,23,31,13,32,21`.
+Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. GWDelta evaluates the direct response from the metric components $\Psi$, $\Xi_i$, and $H_{ij}$ and their time derivatives supplied by the model. The directed link $y_{i\leftarrow j}$ is received at spacecraft $i$ after emission from spacecraft $j$; the link order is `12,23,31,13,32,21`.
 
 For the optional endpoint term, the velocity perturbation along a prescribed background trajectory $\mathbf x_A^{(0)}(t)$ obeys
 
@@ -178,7 +178,7 @@ $$
 \frac{d\\,\delta V_A^i}{dt}=\delta a_A^i .
 $$
 
-The resulting $\delta\mathbf V_A$ enters the endpoint Doppler term.
+(Velocity-dependent and displacement-dependent terms in the acceleration are omitted.) The resulting $\delta\mathbf V_A$ enters the endpoint Doppler term.
 
 The following metric models are built in:
 
@@ -251,7 +251,7 @@ $$
 H_{ab}=2\phi(\delta_{ab}+2\gamma^2\beta_a\beta_b).
 $$
 
-The photon-propagation term is evaluated analytically and is exact in $\beta$ ([arXiv:gr-qc/9902030](https://arxiv.org/abs/gr-qc/9902030)).
+Following [Kopeikin and Schäfer (1999)](https://arxiv.org/abs/gr-qc/9902030), the photon-propagation term is evaluated analytically and is exact in $\beta$.
 
 ## Plane-GW Polarizations
 

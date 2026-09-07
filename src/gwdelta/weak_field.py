@@ -31,6 +31,7 @@ class MetricValues:
 class WeakMetricField(Protocol):
     def metric(self, t_s, x_m) -> MetricValues:
         pass
+
     def time_derivative(self, t_s, x_m) -> MetricValues:
         pass
 
