@@ -11,6 +11,7 @@ from scipy.interpolate import CubicSpline
 from weak_field_demo_common import (
     DAY_S,
     REPO_ROOT,
+    SIDEREAL_YEAR_S,
     SOLAR_EQUATOR_ASCENDING_NODE_DEG,
     SOLAR_EQUATOR_INCLINATION_DEG,
     SOLAR_G1_M2_DEFAULT_SURFACE_VELOCITY_M_S,
@@ -32,16 +33,14 @@ from gwdelta import RetardedQuadrupoleMode, select_array_backend
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "lisa_solar_quadrupole_snr"
 README_FIGURE_NAME = "lisa_solar_quadrupole_snr_demo.png"
+OBSERVATION_DURATION_S = SIDEREAL_YEAR_S
+RESPONSE_BACKEND = "cuda12x"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--years", type=float, default=1.0)
     parser.add_argument("--dt", type=float, default=30.0)
     parser.add_argument("--orbit-dt", type=float, default=600.0)
-    parser.add_argument(
-        "--response-backend", choices=["cpu", "cuda12x"], default="cuda12x"
-    )
     parser.add_argument("--quadrature-order", type=int, default=16)
     parser.add_argument("--chunk-size", type=int, default=16384)
     parser.add_argument("--tdi-order", type=int, default=15)
@@ -55,11 +54,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--solar-phase", type=float, default=0.0)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--save-npz", action="store_true")
-    parser.add_argument(
-        "--publish-figure",
-        action="store_true",
-        help="also write the reproducible README figure under docs/figures",
-    )
     return parser.parse_args()
 
 
@@ -108,10 +102,7 @@ def make_figure(
         lw=0.9,
         label=r"$f_Q$",
     )
-    axes[1].set_xlim(
-        max(frequency_hz[1], solar_frequency_hz / 20.0),
-        solar_frequency_hz * 20.0,
-    )
+    axes[1].set_xlim(solar_frequency_hz / 2.0, solar_frequency_hz * 2.0)
     axes[1].set_xlabel(r"$f\,[{\rm Hz}]$")
     axes[1].set_ylabel(r"$|\tilde{U}(f)|\,[{\rm s}]$")
     axes[1].legend(frameon=False)
@@ -126,16 +117,16 @@ def make_figure(
 
 
 def run(args: argparse.Namespace) -> dict[str, object]:
-    configure_cuda_if_needed(args.response_backend)
+    configure_cuda_if_needed(RESPONSE_BACKEND)
     started = time.perf_counter()
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     motion_time, response_time, analysis_samples = build_time_grids(
-        args.years, args.dt, args.t_buffer
+        OBSERVATION_DURATION_S, args.dt, args.t_buffer
     )
 
     tic = time.perf_counter()
-    orbits = make_esa_lisa_orbits(motion_time[-1], args.orbit_dt, args.response_backend)
+    orbits = make_esa_lisa_orbits(motion_time[-1], args.orbit_dt, RESPONSE_BACKEND)
     orbit_setup_s = time.perf_counter() - tic
     quadrupole_amplitude, solar_calibration = calibrated_solar_g1_m2_quadrupole(
         args.surface_velocity_m_s, args.solar_phase
@@ -148,9 +139,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     t_base = as_numpy(orbits.t_base).astype(float, copy=False)
     x_base = as_numpy(orbits.x_base).astype(float, copy=False)
     background_position = CubicSpline(t_base, x_base, axis=0)(motion_time)
-    array_backend = select_array_backend(
-        force="cupy" if args.response_backend == "cuda12x" else "cpu"
-    )
+    array_backend = select_array_backend(force="cupy")
     tic = time.perf_counter()
     motion = source.steady_state_test_mass_motion(
         array_backend.asarray(motion_time),
@@ -159,7 +148,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     worldline_setup_s = time.perf_counter() - tic
     link_engine, tdi_engine = make_response_engines(
         orbits,
-        response_backend=args.response_backend,
+        response_backend=RESPONSE_BACKEND,
         quadrature_order=args.quadrature_order,
         chunk_size=args.chunk_size,
         tdi_order=args.tdi_order,
@@ -190,16 +179,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         snr=snr,
         solar_frequency_hz=SOLAR_G1_M2_FREQUENCY_HZ,
     )
-    published_figure = None
-    if args.publish_figure:
-        published_figure = REPO_ROOT / "docs" / "figures" / README_FIGURE_NAME
-        make_figure(
-            published_figure,
-            channels=channels,
-            snr=snr,
-            solar_frequency_hz=SOLAR_G1_M2_FREQUENCY_HZ,
-        )
-
     npz_path = output_dir / "lisa_solar_quadrupole_snr_demo.npz"
     if args.save_npz:
         np.savez_compressed(
@@ -224,7 +203,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "link_order": list(orbits.LINKS),
         },
         "observation": {
-            "requested_years": float(args.years),
+            "requested_duration_s": OBSERVATION_DURATION_S,
             "samples": int(len(channels["t"])),
             "dt_s": float(args.dt),
             "duration_s": float(len(channels["t"]) * args.dt),
@@ -278,9 +257,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "outputs": {
             "figure": str(figure_path),
-            "published_figure": (
-                None if published_figure is None else str(published_figure)
-            ),
             "npz": str(npz_path) if args.save_npz else None,
         },
     }

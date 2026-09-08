@@ -10,6 +10,8 @@ The response code can run on CPU or through `force_backend="cuda12x"` with the m
 
 Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations in the fixed-background-trajectory nonrelativistic test-mass approximation.
 
+`gwdelta.precise_tdi.compute_tdi2_ae()` computes the second-generation $A,E$ channels from six supplied one-way link time series. It is slower than the GPU routine, but evaluates the nested TDI delays independently, avoiding an interpolation residual that can be comparable to exceptionally weak nonstationary signals.
+
 ## Example 1
 
 The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
@@ -107,11 +109,7 @@ E_lisa = response["lisa"].channels["E"]
 
 ## Example 4
 
-The example below computes the second-generation $A,E$ signals and one-year SNRs produced by a monochromatic $l=2,m=2$ component of the Sun's mass quadrupole moment with a realistic LISA orbit:
-
-```bash
-python examples/lisa_solar_quadrupole_snr_demo.py --years 1 --response-backend cuda12x --publish-figure
-```
+The example below computes the second-generation $A,E$ signals and one-year SNRs produced by a monochromatic $l=2,m=2$ component of the Sun's mass quadrupole moment with a realistic LISA orbit.
 
 The source is the solar $l=2,m=2,n=-1$ g mode. The updated MESA GS98 model gives $f_Q=0.293\\,\mathrm{mHz}$, $J_2=5.38\times10^{-3}$, and $V_2=1.96\times10^5\\,\mathrm{m\\,s^{-1}}$ ([arXiv:2602.18385](https://arxiv.org/abs/2602.18385)). The model is nonrotating and retains a single $m=2$ component; rotational splitting and the associated pattern rotation are omitted. Solar $g$ modes remain undetected, and this example adopts a surface velocity amplitude of $0.1\\,\mathrm{mm\\,s^{-1}}$, as predicted in [arXiv:astro-ph/9512091](https://arxiv.org/abs/astro-ph/9512091). Later calculations give an upper prediction of $\lesssim0.3\\,\mathrm{mm\\,s^{-1}}$ ([arXiv:1210.5525](https://arxiv.org/abs/1210.5525)). The solar spin axis follows the [NASA SOHO convention](https://sohoftp.nascom.nasa.gov/sdb/soho/ancillary/). The calculation includes both photon propagation and the leading nonrelativistic test-mass motion, using the monochromatic forced solution.
 
@@ -121,13 +119,11 @@ For a one-year observation, the static equal-arm approximation to the second-gen
 
 ## Example 5
 
-The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions [warning: the perturbed orbit is not fully taken into account]:
-
-```bash
-python examples/lisa_constant_velocity_point_mass_demo.py --years 1 --response-backend cuda12x --publish-figure
-```
+The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions [warning: the perturbed orbit is not fully taken into account].
 
 The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the reference time $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
+
+To avoid an interpolation residual larger than the required accuracy for this exceptionally weak nonstationary signal, the $A,E$ channels are evaluated with `gwdelta.precise_tdi.compute_tdi2_ae()` rather than `FastLISAResponseTDI.compute_links()`.
 
 ![Constant-velocity point-mass response with a realistic LISA orbit](docs/figures/lisa_constant_velocity_point_mass_demo.png)
 

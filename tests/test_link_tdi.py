@@ -4,7 +4,11 @@ import unittest
 
 import numpy as np
 
-from gwdelta import FastLISAResponseTDI, make_lisa_simple_orbits
+from gwdelta import (
+    FastLISAResponseTDI,
+    make_lisa_simple_orbits,
+    compute_tdi2_ae,
+)
 
 
 class LinkTDITests(unittest.TestCase):
@@ -61,6 +65,60 @@ class LinkTDITests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "y_links must have shape"):
             response.compute_links(times, np.zeros((5, len(times))))
+
+    def test_precise_tdi2_preserves_common_constant_links(self) -> None:
+        dt = 2.0
+        times = np.arange(4096, dtype=float) * dt
+        orbits = make_lisa_simple_orbits(
+            duration=9000.0,
+            orbit_dt=60.0,
+            force_backend="cpu",
+        )
+        result = compute_tdi2_ae(
+            times,
+            np.full((6, len(times)), 1.0e-20),
+            orbits=orbits,
+            t_buffer=1500.0,
+        )
+        arrays = result.as_numpy()
+        np.testing.assert_allclose(arrays["A"], 0.0, rtol=0.0, atol=1.0e-34)
+        np.testing.assert_allclose(arrays["E"], 0.0, rtol=0.0, atol=1.0e-34)
+        self.assertEqual(result.metadata["backend"], "scipy_cubic_precomputed_tdi2")
+        self.assertEqual(result.metadata["delay_evaluation"], "recursive")
+
+    def test_precise_tdi2_agrees_with_fast_backend_for_smooth_links(self) -> None:
+        dt = 2.0
+        times = np.arange(4096, dtype=float) * dt
+        orbits = make_lisa_simple_orbits(
+            duration=9000.0,
+            orbit_dt=60.0,
+            force_backend="cpu",
+        )
+        phase = 2.0 * np.pi * 0.003 * times
+        links = np.vstack(
+            [
+                (index + 1.0) * 1.0e-21 * np.sin(phase + 0.2 * index)
+                for index in range(6)
+            ]
+        )
+        fast = FastLISAResponseTDI(
+            orbits=orbits,
+            order=15,
+            tdi="2nd generation",
+            tdi_chan="AE",
+            force_backend="cpu",
+            t_buffer=1500.0,
+            trim_garbage=True,
+        ).compute_links(times, links).as_numpy()
+        precise = compute_tdi2_ae(
+            times,
+            links,
+            orbits=orbits,
+            t_buffer=1500.0,
+        ).as_numpy()
+        np.testing.assert_array_equal(precise["t"], fast["t"])
+        np.testing.assert_allclose(precise["A"], fast["A"], rtol=2.0e-4, atol=1.0e-30)
+        np.testing.assert_allclose(precise["E"], fast["E"], rtol=2.0e-4, atol=1.0e-30)
 
     def test_time_domain_polarizations_feed_tdi(self) -> None:
         dt = 2.0

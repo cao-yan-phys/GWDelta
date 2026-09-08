@@ -1,6 +1,7 @@
 from .array_backend import ArrayBackend, select_array_backend
 from .cuda_runtime import ensure_cuda_dll_directories
 from .fastlisa import FastLISAResponseTDI, TDIResult
+from .precise_tdi import compute_tdi2_ae
 from .network import (
     DEFAULT_DETECTOR_BASES,
     DETECTOR_ALIASES,
@@ -239,6 +240,7 @@ __all__ = [
     "sky_basis",
     "save_orbit_npz",
     "second_generation_xyz_from_links",
+    "compute_tdi2_ae",
     "static_taiji_positions",
     "tdi_xyz_from_links",
     "tdi_name_for_response",

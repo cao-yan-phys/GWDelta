@@ -141,15 +141,15 @@ def calibrated_solar_g1_m2_quadrupole(
 
 
 def build_time_grids(
-    years: float, dt_s: float, t_buffer_s: float
+    duration_s: float, dt_s: float, t_buffer_s: float
 ) -> tuple[np.ndarray, np.ndarray, int]:
-    if not np.isfinite(years) or not np.isfinite(dt_s):
-        raise ValueError("years and dt must be finite")
-    if years <= 0.0 or dt_s <= 0.0:
-        raise ValueError("years and dt must be positive")
+    if not np.isfinite(duration_s) or not np.isfinite(dt_s):
+        raise ValueError("duration and dt must be finite")
+    if duration_s <= 0.0 or dt_s <= 0.0:
+        raise ValueError("duration and dt must be positive")
     if not np.isfinite(t_buffer_s) or t_buffer_s <= 0.0:
         raise ValueError("t_buffer must be finite and positive")
-    analysis_samples = int(np.floor(years * SIDEREAL_YEAR_S / dt_s))
+    analysis_samples = int(np.floor(duration_s / dt_s))
     trim_samples = int(t_buffer_s / dt_s)
     if analysis_samples < 16 or trim_samples < 1:
         raise ValueError("time grid or TDI buffer is too short")

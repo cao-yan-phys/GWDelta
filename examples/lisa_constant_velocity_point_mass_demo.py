@@ -23,21 +23,25 @@ from weak_field_demo_common import (
     tdi_channels_numpy,
     write_summary,
 )
-from gwdelta import C_SI, ConstantVelocityPointMass, G_SI, select_array_backend
+from gwdelta import (
+    C_SI,
+    ConstantVelocityPointMass,
+    G_SI,
+    compute_tdi2_ae,
+    select_array_backend,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs" / "lisa_constant_velocity_point_mass"
 README_FIGURE_NAME = "lisa_constant_velocity_point_mass_demo.png"
+FLYBY_WINDOW_HALF_WIDTH_TIMESCALES = 20.0
+RESPONSE_BACKEND = "cuda12x"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--years", type=float, default=1.0)
     parser.add_argument("--dt", type=float, default=30.0)
     parser.add_argument("--orbit-dt", type=float, default=600.0)
-    parser.add_argument(
-        "--response-backend", choices=["cpu", "cuda12x"], default="cuda12x"
-    )
     parser.add_argument("--quadrature-order", type=int, default=16)
     parser.add_argument("--chunk-size", type=int, default=16384)
     parser.add_argument("--tdi-order", type=int, default=15)
@@ -47,11 +51,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--flyby-impact-parameter-m", type=float, default=5.0e12)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--save-npz", action="store_true")
-    parser.add_argument(
-        "--publish-figure",
-        action="store_true",
-        help="also write the reproducible README figure under docs/figures",
-    )
     return parser.parse_args()
 
 
@@ -111,14 +110,20 @@ def build_constant_velocity_source(
 
 
 def compute_tdi_components(
-    tdi_engine,
+    orbits,
     time_s: np.ndarray,
     components: dict[str, object],
+    t_buffer_s: float,
 ) -> tuple[dict[str, dict[str, np.ndarray]], dict[str, object]]:
     channels = {}
     metadata = {}
     for name, links in components.items():
-        result = tdi_engine.compute_links(time_s, links)
+        result = compute_tdi2_ae(
+            time_s,
+            links,
+            orbits=orbits,
+            t_buffer=t_buffer_s,
+        )
         channels[name] = tdi_channels_numpy(result)
         metadata[name] = result.metadata
     return channels, metadata
@@ -223,16 +228,20 @@ def make_figure(
 
 
 def run(args: argparse.Namespace) -> dict[str, object]:
-    configure_cuda_if_needed(args.response_backend)
+    configure_cuda_if_needed(RESPONSE_BACKEND)
     started = time.perf_counter()
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    flyby_timescale_s = (
+        args.flyby_impact_parameter_m / args.flyby_relative_speed_m_s
+    )
+    observation_duration_s = 2.0 * FLYBY_WINDOW_HALF_WIDTH_TIMESCALES * flyby_timescale_s
     motion_time, response_time, analysis_samples = build_time_grids(
-        args.years, args.dt, args.t_buffer
+        observation_duration_s, args.dt, args.t_buffer
     )
 
     tic = time.perf_counter()
-    orbits = make_esa_lisa_orbits(motion_time[-1], args.orbit_dt, args.response_backend)
+    orbits = make_esa_lisa_orbits(motion_time[-1], args.orbit_dt, RESPONSE_BACKEND)
     orbit_setup_s = time.perf_counter() - tic
     background_position, background_velocity = interpolate_orbit_worldlines(
         orbits, motion_time
@@ -241,10 +250,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     if minimum_emission_time < motion_time[0]:
         raise ValueError("motion grid does not cover the earliest emission event")
 
-    trim_samples = int(args.t_buffer / args.dt)
-    output_start = response_time[trim_samples]
-    output_stop = response_time[-trim_samples - 1]
-    encounter_time_s = 0.5 * (output_start + output_stop)
+    encounter_time_s = args.t_buffer + 0.5 * observation_duration_s
     encounter_position = CubicSpline(motion_time, background_position, axis=0)(
         encounter_time_s
     )
@@ -258,9 +264,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         encounter_velocity,
     )
 
-    array_backend = select_array_backend(
-        force="cupy" if args.response_backend == "cuda12x" else "cpu"
-    )
+    array_backend = select_array_backend(force="cupy")
     tic = time.perf_counter()
     motion = source.integrate_test_mass_motion(
         array_backend.asarray(motion_time),
@@ -268,9 +272,9 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     )
     worldline_setup_s = time.perf_counter() - tic
 
-    link_engine, tdi_engine = make_response_engines(
+    link_engine, _tdi_engine = make_response_engines(
         orbits,
-        response_backend=args.response_backend,
+        response_backend=RESPONSE_BACKEND,
         quadrature_order=args.quadrature_order,
         chunk_size=args.chunk_size,
         tdi_order=args.tdi_order,
@@ -284,13 +288,14 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     )
     minimum_rho_m = minimum_link_rho(source, links.geometry, max(1024, args.chunk_size))
     components, tdi_metadata = compute_tdi_components(
-        tdi_engine,
+        orbits,
         response_time,
         {
             "direct": links.direct,
             "worldline": links.worldline,
             "total": links.total,
         },
+        args.t_buffer,
     )
     response_s = time.perf_counter() - tic
     if any(len(channels["t"]) != analysis_samples for channels in components.values()):
@@ -337,7 +342,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         component_error / max(total_norm, np.finfo(float).tiny)
     )
 
-    flyby_timescale_s = args.flyby_impact_parameter_m / args.flyby_relative_speed_m_s
     figure_path = output_dir / README_FIGURE_NAME
     make_figure(
         figure_path,
@@ -345,16 +349,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         encounter_time_s=encounter_time_s,
         flyby_timescale_s=flyby_timescale_s,
     )
-    published_figure = None
-    if args.publish_figure:
-        published_figure = REPO_ROOT / "docs" / "figures" / README_FIGURE_NAME
-        make_figure(
-            published_figure,
-            components=components,
-            encounter_time_s=encounter_time_s,
-            flyby_timescale_s=flyby_timescale_s,
-        )
-
     npz_path = output_dir / "lisa_constant_velocity_point_mass_demo.npz"
     if args.save_npz:
         np.savez_compressed(
@@ -379,7 +373,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "link_order": list(orbits.LINKS),
         },
         "observation": {
-            "requested_years": float(args.years),
+            "requested_duration_s": observation_duration_s,
             "samples": int(len(reference_time)),
             "dt_s": float(args.dt),
             "duration_s": float(len(reference_time) * args.dt),
@@ -393,6 +387,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "relative_speed_m_s": float(args.flyby_relative_speed_m_s),
             "impact_parameter_m": float(args.flyby_impact_parameter_m),
             "flyby_timescale_s": float(flyby_timescale_s),
+            "window_half_width_timescales": FLYBY_WINDOW_HALF_WIDTH_TIMESCALES,
             "minimum_link_rho_m": float(minimum_rho_m),
             "maximum_GM_over_c2rho": float(
                 G_SI * args.point_mass_kg / (C_SI**2 * minimum_rho_m)
@@ -415,9 +410,6 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         },
         "outputs": {
             "figure": str(figure_path),
-            "published_figure": (
-                None if published_figure is None else str(published_figure)
-            ),
             "npz": str(npz_path) if args.save_npz else None,
         },
     }
