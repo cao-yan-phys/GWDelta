@@ -6,6 +6,7 @@ import numpy as np
 
 from gwdelta import (
     FastLISAResponseTDI,
+    aet_from_xyz,
     make_lisa_simple_orbits,
     compute_tdi2_ae,
 )
@@ -119,6 +120,42 @@ class LinkTDITests(unittest.TestCase):
         np.testing.assert_array_equal(precise["t"], fast["t"])
         np.testing.assert_allclose(precise["A"], fast["A"], rtol=2.0e-4, atol=1.0e-30)
         np.testing.assert_allclose(precise["E"], fast["E"], rtol=2.0e-4, atol=1.0e-30)
+
+    def test_hybrid_relay_ordinary_names_and_aet_rotation(self) -> None:
+        dt = 2.0
+        times = np.arange(8192, dtype=float) * dt
+        orbits = make_lisa_simple_orbits(
+            duration=times[-1] + 3000.0,
+            orbit_dt=60.0,
+            force_backend="cpu",
+        )
+        phase = 2.0 * np.pi * 0.003 * times
+        h_plus = 1.0e-21 * np.cos(phase)
+        h_cross = 0.7e-21 * np.sin(phase)
+        kwargs = {
+            "orbits": orbits,
+            "order": 5,
+            "tdi": "hybrid relay",
+            "force_backend": "cpu",
+            "t_buffer": 1500.0,
+            "trim_garbage": True,
+        }
+        ordinary = FastLISAResponseTDI(tdi_chan="UVW", **kwargs).compute(
+            times, h_plus, h_cross, lam=0.3, beta=0.4
+        ).as_numpy()
+        optimal = FastLISAResponseTDI(tdi_chan="AET", **kwargs).compute(
+            times, h_plus, h_cross, lam=0.3, beta=0.4
+        ).as_numpy()
+        self.assertEqual(
+            set(ordinary) - {"t", "projections"},
+            {"U", "V", "W"},
+        )
+        expected = aet_from_xyz(
+            ordinary["U"], ordinary["V"], ordinary["W"]
+        )
+        np.testing.assert_allclose(optimal["A"], expected[0], rtol=0.0, atol=0.0)
+        np.testing.assert_allclose(optimal["E"], expected[1], rtol=0.0, atol=0.0)
+        np.testing.assert_allclose(optimal["T"], expected[2], rtol=0.0, atol=0.0)
 
     def test_time_domain_polarizations_feed_tdi(self) -> None:
         dt = 2.0

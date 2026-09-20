@@ -256,9 +256,9 @@ For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_
 $$
 \begin{aligned}
 e^{+} &= \mathbf a\otimes\mathbf a-\mathbf b\otimes\mathbf b,
-& e^{\times} &= \mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a \\
+& e^{\times} &= \mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a, \\
 e^{x} &= \mathbf a\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf a,
-& e^{y} &= \mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b \\
+& e^{y} &= \mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b, \\
 e^{b} &= \mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,
 & e^{l} &= \sqrt{2}\hat{\mathbf k}\otimes\hat{\mathbf k}.
 \end{aligned}
@@ -280,9 +280,9 @@ GWDelta can build FastLISAResponse-compatible orbit objects from the following `
 | `tianqin-toy`     | TianQin orbit         | Built-in rigid geocentric cartwheel model                     |
 | `file`            | User orbit            | Sampled NPZ/CSV orbit data                                   |
 
-**Warning:** The Taiji orbit files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
+**Warning:** The realistic LISA and Taiji orbit data files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
 
-GWDelta can also generate simple equal-arm orbits directly from a reference triangle in the realistic Taiji orbit. First build the realistic Taiji orbit and relabel it to the standard TDI convention, then interpolate the three spacecraft positions at `reference_time_s`.
+GWDelta can also generate simple equal-arm orbits from the three spacecraft positions of a supplied orbit at `reference_time_s`. For the realistic LISA and Taiji orbit files, first apply `make_standard_convention_orbits()` before extracting those positions.
 
 The static helper builds a fixed equal-arm triangle with the same reference center, sets the effective arm length to the median reference arm length, and fits the analytic triangle orientation:
 
@@ -359,13 +359,14 @@ Family-specific defaults:
 
 The time-domain interface separates the TDI delay combination from the output channel basis:
 
-- `tdi="1st generation"`: first-generation Michelson-style ordinary triplet; see [arXiv:gr-qc/0409034](https://arxiv.org/abs/gr-qc/0409034).
-- `tdi="2nd generation"`: second-generation Michelson-style ordinary triplet; see [arXiv:gr-qc/0310017](https://arxiv.org/abs/gr-qc/0310017).
-- `tdi="hybrid relay"`: second-generation hybrid Relay ordinary triplet; see [arXiv:2403.01490](https://arxiv.org/abs/2403.01490).
+- `tdi="1st generation"`: first-generation Michelson channels; see [arXiv:gr-qc/0409034](https://arxiv.org/abs/gr-qc/0409034).
+- `tdi="2nd generation"`: second-generation Michelson channels; see [arXiv:gr-qc/0310017](https://arxiv.org/abs/gr-qc/0310017).
+- `tdi="hybrid relay"`: second-generation hybrid Relay channels; see [arXiv:2403.01490](https://arxiv.org/abs/2403.01490).
 - `tdi=[...]`: a custom list of FastLISAResponse delay-term dictionaries.
-- `tdi_chan="XYZ"`: return the three ordinary channels using the existing FastLISAResponse output names.
-- `tdi_chan="AET"`: rotate the selected ordinary triplet to three optimal channels; see [arXiv:gr-qc/0209039](https://arxiv.org/abs/gr-qc/0209039).
-- `tdi_chan="AE"`: return only the first two rotated channels.
+- `tdi_chan="XYZ"`: return the Michelson channels `X,Y,Z`.
+- `tdi_chan="UVW"`: return the hybrid Relay channels `U,V,W`.
+- `tdi_chan="AET"`: return the corresponding `A,E,T` channels; see [arXiv:gr-qc/0209039](https://arxiv.org/abs/gr-qc/0209039).
+- `tdi_chan="AE"`: return the corresponding `A,E` channels.
 
 Examples:
 
@@ -385,7 +386,7 @@ hybrid_relay = FastLISAResponseTDI(
 )
 ```
 
-The `tdi_chan` selector keeps the existing output naming convention. `XYZ` means the selected ordinary triplet before A/E/T rotation; the actual delay combination is selected by `tdi`.
+The `tdi` selector chooses the delay combination. Use `tdi_chan="XYZ"` for the Michelson channels `X,Y,Z` and `tdi_chan="UVW"` for the hybrid Relay channels `U,V,W`; `tdi_chan="AET"` and `"AE"` return the corresponding channels.
 
 For static equal-arm models, `gwdelta.noise` provides one-way instrumental-noise PSDs, TDI1/TDI2 A/E/T PSDs, and their diagonal inverse covariance. For static unequal arms, `gwdelta.tdi_noise` provides full TDI2 instrumental-noise CSDs ([arXiv:2111.00975](https://arxiv.org/abs/2111.00975)) in the `XYZ` or `AET` basis through `frozen_tdi2_noise_covariance()`.
 

@@ -103,7 +103,7 @@ def ordinary_channel_names(tdi: str | list[TDICombination]) -> tuple[str, str, s
     if isinstance(tdi, list):
         return ("C0", "C1", "C2")
     if normalize_tdi_name(tdi) == "hybrid relay":
-        return ("UUbar", "VVbar", "WWbar")
+        return ("U", "V", "W")
     return ("X", "Y", "Z")
 
 

@@ -7,7 +7,11 @@ import numpy as np
 
 from .array_backend import infer_backend_from_array
 from .cuda_runtime import backend_wants_cuda, ensure_cuda_dll_directories
-from .tdi_combinations import resolve_tdi_combinations
+from .tdi_combinations import (
+    normalize_tdi_name,
+    ordinary_channel_names,
+    resolve_tdi_combinations,
+)
 
 
 @dataclass
@@ -70,7 +74,14 @@ class FastLISAResponseTDI:
         self.order = int(order)
         self.tdi_requested = tdi
         self.tdi = resolve_tdi_combinations(tdi)
-        self.tdi_chan = tdi_chan
+        self.tdi_chan = str(tdi_chan).upper()
+        if normalize_tdi_name(tdi) == "hybrid relay":
+            if self.tdi_chan == "XYZ":
+                raise ValueError("hybrid relay uses tdi_chan='UVW', 'AET', or 'AE'")
+            if self.tdi_chan not in {"UVW", "AET", "AE"}:
+                raise ValueError("hybrid relay uses tdi_chan='UVW', 'AET', or 'AE'")
+        elif self.tdi_chan not in {"XYZ", "AET", "AE"}:
+            raise ValueError("tdi_chan must be 'XYZ', 'AET', or 'AE'")
         self.force_backend = force_backend
         self.t_buffer = float(t_buffer)
         self.trim_garbage = bool(trim_garbage)
@@ -90,7 +101,7 @@ class FastLISAResponseTDI:
             float(dt),
             int(num_pts),
             self.order,
-            self.tdi_chan,
+            self._backend_tdi_chan(),
             self.force_backend,
             id(self.orbits),
             repr(self.tdi),
@@ -104,13 +115,18 @@ class FastLISAResponseTDI:
             order=self.order,
             tdi=self.tdi,
             orbits=self.orbits,
-            tdi_chan=self.tdi_chan,
+            tdi_chan=self._backend_tdi_chan(),
             force_backend=self.force_backend,
         )
         if self.cache_response:
             self._cached_response_key = key
             self._cached_response = response
         return response, False
+
+    def _backend_tdi_chan(self) -> str:
+        if self.tdi_chan == "UVW":
+            return "XYZ"
+        return self.tdi_chan
 
     def compute(
         self,
@@ -135,14 +151,14 @@ class FastLISAResponseTDI:
         response.get_projections(strain, lam, beta, t0=start_time, t_buffer=self.t_buffer)
         channel_values = response.get_tdi_delays()
 
-        if self.tdi_chan == "XYZ":
-            names = ["X", "Y", "Z"]
+        if self.tdi_chan in {"XYZ", "UVW"}:
+            names = list(ordinary_channel_names(self.tdi_requested))
         elif self.tdi_chan == "AET":
             names = ["A", "E", "T"]
         elif self.tdi_chan == "AE":
             names = ["A", "E"]
         else:
-            raise ValueError("tdi_chan must be 'XYZ', 'AET', or 'AE'")
+            raise ValueError("tdi_chan must select the configured ordinary or optimal channels")
 
         channels = dict(zip(names, channel_values))
         t_out = t_np.copy()
@@ -252,14 +268,14 @@ class FastLISAResponseTDI:
         response.y_gw_length = len(t_np)
         channel_values = response.get_tdi_delays(t0=start_time)
 
-        if self.tdi_chan == "XYZ":
-            names = ["X", "Y", "Z"]
+        if self.tdi_chan in {"XYZ", "UVW"}:
+            names = list(ordinary_channel_names(self.tdi_requested))
         elif self.tdi_chan == "AET":
             names = ["A", "E", "T"]
         elif self.tdi_chan == "AE":
             names = ["A", "E"]
         else:
-            raise ValueError("tdi_chan must be 'XYZ', 'AET', or 'AE'")
+            raise ValueError("tdi_chan must select the configured ordinary or optimal channels")
 
         channels = dict(zip(names, channel_values))
         t_out = t_np.copy()
