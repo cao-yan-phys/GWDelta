@@ -28,9 +28,20 @@ The example below compares three Taiji response calculations for a precessing qu
 
 ## Example 2
 
+The example below compares four LISA TDI2 response calculations for nonprecessing quasi-circular stellar-mass BBH $(2,0)$- and $(3,0)$-mode waveforms generated with `NRHybSur3dq8_CCE`.
+
+The analytic responses are calculated using (I) FFT $[\dot h_{l,0}]/(-2\pi i f)$ [ in the Fourier convention: $\tilde h(f)=\int dte^{2\pi if t}h(t)$ ], (II) $\tilde h_\infty (f)$ constructed using effective 0PN extrapolation, (III) FFT of Tukey-windowed $h_{l,0}(t)$ .
+
+<p align="center">
+<img src="docs/figures/lisa_stellar_bbh_cce_h20_tdi2.png" width="49%">
+<img src="docs/figures/lisa_stellar_bbh_cce_h30_tdi2.png" width="49%">
+</p>
+
+## Example 3
+
 The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two LISA TDI2 response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
 
-Binary masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$ .
+Binary (redshifted) masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$.
 
 The parameters of the AK and PN models are matched initially. The PN model uses the 1PN QK parametrization and 3PN evolution equations for $x(t)$ and $e_t(t)$. The waveform amplitude includes only the Newtonian quadrupolar $h_{2,0}$ and $h_{2,\pm2}$ modes. In the AK model, the harmonic phase includes a cubic-in-time term, and the periastron-precession phase includes a quadratic-in-time term.
 
@@ -40,7 +51,7 @@ The parameters of the AK and PN models are matched initially. The PN model uses 
 
 ![One-year AK LISA A-channel zoom](docs/figures/lisa_ak_tdi2_1yr_demo_A_zoom.png)
 
-## Example 3
+## Example 4
 
 The script below computes the $A,E$-channel SNR of a monochromatic elliptically polarized source with time-domain TDI2 responses and the built-in instrumental-noise PSDs:
 
@@ -107,7 +118,7 @@ A_lisa = response["lisa"].channels["A"]
 E_lisa = response["lisa"].channels["E"]
 ```
 
-## Example 4
+## Example 5
 
 The example below computes the second-generation $A,E$ signals and one-year SNRs produced by a monochromatic $l=2,m=2$ component of the Sun's mass quadrupole moment with a realistic LISA orbit.
 
@@ -117,7 +128,7 @@ For a one-year observation, the static equal-arm approximation to the second-gen
 
 ![Solar-quadrupole response with a realistic LISA orbit](docs/figures/lisa_solar_quadrupole_snr_demo.png)
 
-## Example 5
+## Example 6
 
 The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions [warning: the perturbed orbit is not fully taken into account].
 

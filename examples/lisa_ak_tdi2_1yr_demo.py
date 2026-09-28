@@ -683,7 +683,7 @@ def plot_outputs(
         ax.grid(alpha=0.25)
         ax.legend(loc="best")
 
-    for ax, ylabel in ((ax_a_freq, r"$|\tilde A(f)|$"), (ax_e_freq, r"$|\tilde E(f)|$")):
+    for ax, ylabel in ((ax_a_freq, r"$|\tilde A(f)|$ [s]"), (ax_e_freq, r"$|\tilde E(f)|$ [s]")):
         if f22_start_hz is not None and f22_start_hz > 0.0:
             ax.axvline(f22_start_hz, color="0.25", ls="-.", lw=0.9, label="f22_start")
         if f22_end_hz is not None and f22_end_hz > 0.0:
@@ -792,7 +792,7 @@ def plot_a_zoom_outputs(
         ax_freq.axvline(freq_scale * f22_end_hz, color="0.45", ls=":", lw=1.0, label="f22_end")
     ax_freq.set_xlim(freq_scale * fmin, freq_scale * fmax)
     ax_freq.set_xlabel(r"$f$ [mHz]")
-    ax_freq.set_ylabel(r"$|\tilde A(f)|$")
+    ax_freq.set_ylabel(r"$|\tilde A(f)|$ [s]")
     ax_freq.grid(alpha=0.25)
     ax_freq.legend(loc="lower left")
 

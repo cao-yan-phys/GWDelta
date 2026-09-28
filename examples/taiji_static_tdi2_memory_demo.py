@@ -593,7 +593,7 @@ def plot_outputs(
                 label="f22_start",
             )
         ax.set_xlabel(r"$f$ [Hz]")
-        ax.set_ylabel(rf"$|\tilde{{{channel}}}(f)|/f^2$")
+        ax.set_ylabel(rf"$|\tilde{{{channel}}}(f)|/f^2$ [s$^3$]")
         ax.grid(alpha=0.25)
         ax.legend(loc="best", fontsize=8)
 
