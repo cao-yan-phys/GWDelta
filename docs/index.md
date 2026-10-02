@@ -1,0 +1,408 @@
+# GWDelta
+
+<p align="center">
+  <img src="figures/logo.png" alt="GWDelta logo" width="300">
+</p>
+
+GWDelta is a toolkit for fast single-detector and detector-network response calculations for space-based gravitational-wave detectors, focusing on LISA-like triangular constellations.
+
+The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
+
+Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations in the fixed-background-trajectory nonrelativistic test-mass approximation.
+
+`gwdelta.precise_tdi.compute_tdi2_ae()` computes the second-generation $A,E$ channels from six supplied one-way link time series. It is slower than the GPU routine, but evaluates the nested TDI delays independently, avoiding an interpolation residual that can be comparable to exceptionally weak signals.
+
+## Example 1
+
+The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
+
+- second-generation $A,E$ channels with a realistic Taiji orbit;
+- second-generation $A,E$ channels with a static equal-arm (SEA) orbit;
+- an analytic static equal-arm frequency-domain response.
+
+![Taiji TDI response comparison](figures/taiji_static_tdi2_memory_demo.png)
+
+<p align="center">
+<img src="figures/taiji_ae_time_frequency.png" alt="Taiji A/E time-frequency map" width="600">
+</p>
+
+## Example 2
+
+The example below compares four LISA TDI2 response calculations for nonprecessing quasi-circular stellar-mass BBH $(2,0)$- and $(3,0)$-mode waveforms generated with `NRHybSur3dq8_CCE`.
+
+The analytic responses are calculated using (I) FFT $[\dot h_{l,0}]/(-2\pi i f)$ [ in the Fourier convention: $\tilde h(f)=\int dte^{2\pi if t}h(t)$ ], (II) $\tilde h_\infty (f)$ constructed using effective 0PN extrapolation, (III) FFT of Tukey-windowed $h_{l,0}(t)$ .
+
+<p align="center">
+<img src="figures/lisa_stellar_bbh_cce_h20_tdi2.png" width="49%">
+<img src="figures/lisa_stellar_bbh_cce_h30_tdi2.png" width="49%">
+</p>
+
+## Example 3
+
+The example below compares a one-year nonspinning eccentric comparable-mass compact-binary waveform generated with an analytic kludge (AK) model using two LISA TDI2 response calculations. A PN waveform aligned to the same initial conditions is included as a diagnostic reference.
+
+Binary (redshifted) masses: $m_1=50M_\odot$ , $m_2=30M_\odot$ ; symmetric mass ratio: $\nu=0.234375$ ; luminosity distance: $100\mathrm{Mpc}$ ; eccentricity: $e_t=0.1$ ; frequency markers: f22_start $=5.000\mathrm{mHz}$ , f22_end $\simeq 5.025\mathrm{mHz}$.
+
+The parameters of the AK and PN models are matched initially. The PN model uses the 1PN QK parametrization and 3PN evolution equations for $x(t)$ and $e_t(t)$. The waveform amplitude includes only the Newtonian quadrupolar $h_{2,0}$ and $h_{2,\pm2}$ modes. In the AK model, the harmonic phase includes a cubic-in-time term, and the periastron-precession phase includes a quadratic-in-time term.
+
+![One-year AK LISA response comparison](figures/lisa_ak_tdi2_1yr_demo.png)
+
+
+
+![One-year AK LISA A-channel zoom](figures/lisa_ak_tdi2_1yr_demo_A_zoom.png)
+
+## Example 4
+
+The script below computes the $A,E$-channel SNR of a monochromatic elliptically polarized source with time-domain TDI2 responses and the built-in instrumental-noise PSDs:
+
+```bash
+python examples/monochromatic_snr_time_domain.py --years 1 --frequency 0.003 --amplitude 1e-22 --detectors all --response-backend cuda12x
+```
+
+`--detectors all` uses the built-in analytic orbit models for LISA, Taiji, TianQin, and BBO. The script prints one SNR per detector and writes a small JSON summary under `outputs/monochromatic_snr_time_domain/`.
+
+The source model is $h_+(t)=h_0\cos(2\pi f_0 t+\phi_0)$ and $h_\times(t)=\epsilon h_0\cos(2\pi f_0 t+\phi_0+\delta_\times)$. Here `--ellipticity` is $\epsilon$, `--phase` is $\phi_0$, and `--cross-phase` is the relative phase $\delta_\times$ of $h_\times$ with respect to $h_+$. The default `--cross-phase -1.57079632679` gives the usual quadrature phase.
+
+Common source and response options are:
+
+```bash
+python examples/monochromatic_snr_time_domain.py \
+  --years 1 \
+  --dt 30 \
+  --f0 0.003 \
+  --amplitude 1e-22 \
+  --ellipticity 1.0 \
+  --phase 0.0 \
+  --cross-phase -1.57079632679 \
+  --lam 0.3 \
+  --beta 0.4 \
+  --detectors lisa,taiji \
+  --tdi-generation second \
+  --response-backend cuda12x
+```
+
+The optional parameters are `--years`, `--dt`, `--frequency`/`--f0`, `--amplitude`, `--ellipticity`, `--phase`, `--cross-phase`, `--lam`, `--beta`, `--detectors`, `--tdi-generation`, `--response-backend`, `--order`, `--t-buffer`, `--trim-garbage`/`--no-trim-garbage`, `--orbit-dt`, `--orbit-margin-s`, `--orbit-config-json`, `--skip-unavailable`, `--output-json`, and `--no-output-json`.
+
+For this script, each selected detector starts from the default initial configuration of its built-in orbit model at local `t=0`; the orbit then evolves for the requested observation time. The initial configuration can be changed with `--orbit-config-json`. The JSON object is keyed by detector name and uses the same parameter names as `OrbitSpec`, including degree aliases such as `center_phase_deg`, `cartwheel_phase_deg`, `plane_inclination_deg`, `normal_lon_deg`, and `normal_lat_deg`:
+
+```json
+{
+  "lisa": {"center_phase_deg": -10.0, "cartwheel_phase_deg": 80.0},
+  "taiji": {"center_phase_deg": 30.0, "cartwheel_phase_deg": -70.0},
+  "tianqin": {"center_phase_deg": 5.0, "normal_lon_deg": 120.5, "normal_lat_deg": -4.7},
+  "bbo": {"center_phase_deg": -30.0}
+}
+```
+
+```bash
+python examples/monochromatic_snr_time_domain.py --detectors all --orbit-config-json orbit_config.json
+```
+
+For direct network-response calculations from SSB-frame polarizations:
+
+```python
+from gwdelta import DetectorNetwork
+
+net = DetectorNetwork("lisa,taiji,tianqin,bbo", force_backend="cuda12x")
+response = net.compute_response(
+    t,
+    h_plus,
+    h_cross,
+    lam=0.3,
+    beta=0.4,
+    tdi_generation="second",
+    tdi_chan="AE",
+)
+
+A_lisa = response["lisa"].channels["A"]
+E_lisa = response["lisa"].channels["E"]
+```
+
+## Example 5
+
+The example below computes the second-generation $A,E$ signals and one-year SNRs produced by a monochromatic $l=2,m=2$ component of the Sun's mass quadrupole moment with a realistic LISA orbit.
+
+The source is the solar $l=2,m=2,n=-1$ g mode. The updated MESA GS98 model gives $f_Q=0.293\,\mathrm{mHz}$, $J_2=5.38\times10^{-3}$, and $V_2=1.96\times10^5\,\mathrm{m\,s^{-1}}$ ([arXiv:2602.18385](https://arxiv.org/abs/2602.18385)). The model is nonrotating and retains a single $m=2$ component; rotational splitting and the associated pattern rotation are omitted. Solar $g$ modes remain undetected, and this example adopts a surface velocity amplitude of $0.1\,\mathrm{mm\,s^{-1}}$, as predicted in [arXiv:astro-ph/9512091](https://arxiv.org/abs/astro-ph/9512091). Later calculations give an upper prediction of $\lesssim0.3\,\mathrm{mm\,s^{-1}}$ ([arXiv:1210.5525](https://arxiv.org/abs/1210.5525)). The solar spin axis follows the [NASA SOHO convention](https://sohoftp.nascom.nasa.gov/sdb/soho/ancillary/). The calculation includes both photon propagation and the leading nonrelativistic test-mass motion, using the monochromatic forced solution.
+
+For a one-year observation, the static equal-arm approximation to the second-generation LISA instrumental-noise PSD gives the SNRs $\rho_A=0.01043$, $\rho_E=0.01041$, and $\rho_{AE}\equiv(\rho_A^2+\rho_E^2)^{1/2}=0.01473$.
+
+![Solar-quadrupole response with a realistic LISA orbit](figures/lisa_solar_quadrupole_snr_demo.png)
+
+## Example 6
+
+The example below computes the second-generation $A,E$ signals of a constant-velocity point mass with a realistic LISA orbit, separating the photon-propagation and endpoint-velocity contributions [warning: the perturbed orbit is not fully taken into account].
+
+The point mass has rest mass $M=5.03\times10^{-11}M_\odot$. At the reference time $t_{\mathrm{ref}}$, its velocity relative to the constellation center is half the speed of light in the $+z$ direction of the SSB frame, and its separation perpendicular to this velocity is $b=5\times10^{12}\,\mathrm{m}$. The endpoint-velocity term is obtained by integrating the leading nonrelativistic test-mass acceleration along the prescribed LISA trajectories, with $\delta\mathbf V$ initialized to zero at the start of the integration grid.
+
+To avoid an interpolation residual larger than the required accuracy for this exceptionally weak signal, the $A,E$ channels are evaluated with `gwdelta.precise_tdi.compute_tdi2_ae()` rather than `FastLISAResponseTDI.compute_links()`.
+
+![Constant-velocity point-mass response with a realistic LISA orbit](figures/lisa_constant_velocity_point_mass_demo.png)
+
+## General Metric-Perturbation Response
+
+GWDelta evaluates the leading one-way fractional-frequency response of prescribed spacecraft trajectories to a general linear metric perturbation. In SSB coordinates $(t,\mathbf x)$, write
+
+$$
+ds^2=-(1+2\Psi)dt^2+2\Xi_i\,dt\,dx^i
++(\delta_{ij}+H_{ij})dx^i dx^j.
+$$
+
+The following equations use geometric units. For a link emitted by spacecraft $j$ at $(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and received by spacecraft $i$ at $(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, define
+
+$$
+L=|\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}|,\qquad
+\hat{\mathbf{k}}=\frac{\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}}{L},\qquad
+\mathcal P=\Psi-\hat{\mathbf{k}}_a\Xi_a-\frac12 \hat{\mathbf{k}}_a \hat{\mathbf{k}}_bH_{ab}.
+$$
+
+Along the unperturbed photon trajectory
+
+$$
+\mathbf x_\gamma(t)=\mathbf x_{\mathrm{e}}
++\frac{t-t_{\mathrm{e}}}{t_{\mathrm{r}}-t_{\mathrm{e}}}
+(\mathbf x_{\mathrm{r}}-\mathbf x_{\mathrm{e}}),
+$$
+
+the one-way fractional-frequency shift is
+
+$$
+y_{i\leftarrow j}=\Psi_{\mathrm{e}}-\Psi_{\mathrm{r}}
++\int_{t_{\mathrm{e}}}^{t_{\mathrm{r}}}
+\partial_t\mathcal P[t,\mathbf x_\gamma(t);\hat{\mathbf{k}}]\,dt
+-\hat{\mathbf{k}}\cdot
+(\delta\mathbf V_{\mathrm{r}}-\delta\mathbf V_{\mathrm{e}}).
+$$
+
+Here $\Psi_{\mathrm{e}}=\Psi(t_{\mathrm{e}},\mathbf x_{\mathrm{e}})$ and $\Psi_{\mathrm{r}}=\Psi(t_{\mathrm{r}},\mathbf x_{\mathrm{r}})$, while $\delta\mathbf V_{\mathrm{e}}$ and $\delta\mathbf V_{\mathrm{r}}$ are the metric-induced velocity perturbations of the emitter and receiver. GWDelta evaluates the direct response from the metric components $\Psi$, $\Xi_i$, and $H_{ij}$ and their time derivatives supplied by the model. The directed link $y_{i\leftarrow j}$ is received at spacecraft $i$ after emission from spacecraft $j$; the link order is `12,23,31,13,32,21`.
+
+For the optional endpoint term, the velocity perturbation along a prescribed background trajectory $\mathbf x_A^{(0)}(t)$ obeys
+
+$$
+\delta a_A^i(t)
+=-\partial_i\Psi\bigl[t,\mathbf x_A^{(0)}(t)\bigr]
+-\partial_t\Xi_i\bigl[t,\mathbf x_A^{(0)}(t)\bigr],
+\qquad
+\frac{d\,\delta V_A^i}{dt}=\delta a_A^i .
+$$
+
+(Velocity-dependent and displacement-dependent terms in the acceleration are omitted.) The resulting $\delta\mathbf V_A$ enters the endpoint Doppler term.
+
+The following metric models are built in:
+
+### `RetardedQuadrupoleMode`
+
+For a source at $\mathbf x_{\mathrm{s}}$, define $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, and $u=t-R$. The real STF quadrupole is $I_{ab}(u)=\mathrm{Re}\!\left(\mathcal I_{ab}e^{-i\omega_Q u}\right)$, where $\mathcal I_{ab}$ is its complex STF amplitude, $\omega_Q=2\pi f_Q$, and dots denote derivatives with respect to $u$. The model is
+
+$$
+\begin{aligned}
+h_{00}&=n_an_b
+\left(\frac{3I_{ab}}{R^3}+\frac{3\dot I_{ab}}{R^2}
++\frac{\ddot I_{ab}}{R}\right),\\
+\Psi&=-\frac12h_{00},\\
+\Xi_a&=-2n_b
+\left(\frac{\dot I_{ab}}{R^2}+\frac{\ddot I_{ab}}{R}\right),\\
+H_{ab}&=h_{00}\delta_{ab}+\frac{2}{R}\ddot I_{ab}.
+\end{aligned}
+$$
+
+The $R^{-3}$, $R^{-2}$, and $R^{-1}$ contributions are, respectively, the near-, intermediate-, and radiation-zone parts of the first-post-Minkowskian quadrupole metric ([arXiv:gr-qc/0603064](https://arxiv.org/abs/gr-qc/0603064)).
+
+For this monochromatic template, `steady_state_test_mass_motion()` evaluates the leading nonrelativistic test-mass motion driven by $I_{ab}(u)$ using the steady-state forced solution.
+
+### `SmoothVaidyaMassLoss`
+
+Following [Vaidya (1951)](https://doi.org/10.1007/BF03173260) and [Lindquist, Schwartz, and Misner (1965)](https://doi.org/10.1103/PhysRev.137.B1364), the exact outgoing Vaidya line element for spherically symmetric null radiation is
+
+$$
+ds^2=-\left[1-\frac{2M(u)}{R}\right]du^2-2\,du\,dR+R^2(d\theta^2+\sin^2\theta\,d\phi^2).
+$$
+
+Here $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, $u=t-R$, and $M(u)=M_{\mathrm i}-\Delta M F(u)$, with $\Delta M>0$ and
+
+$$
+F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},
+$$
+
+where $u_0$ and $\tau>0$ set the transition time and width. With $t=u+R$, in the weak-field regime,
+
+$$
+\Psi=-\frac{M(u)}{R},\qquad
+\Xi_a=-\frac{2M(u)}{R}n_a,\qquad
+H_{ab}=\frac{2M(u)}{R}n_an_b.
+$$
+
+`SmoothVaidyaMassLoss` omits the initial mass $M_{\mathrm i}$ in $M(u)=M_{\mathrm i}-\Delta M F(u)$.
+
+
+### `ConstantVelocityPointMass`
+
+For a particle of rest mass $M$, let $\mathbf z_{\mathrm{ref}}$ be its position at $t_{\mathrm{ref}}$ and $\mathbf v$ its (constant) velocity in the SSB frame:
+
+$$
+\mathbf z(t)=\mathbf z_{\mathrm{ref}}+\mathbf v(t-t_{\mathrm{ref}}),\qquad
+\mathbf R=\mathbf x-\mathbf z(t),\qquad R=|\mathbf R|.
+$$
+
+Define $\boldsymbol\beta=\mathbf v$, $\beta^2=\boldsymbol\beta\cdot\boldsymbol\beta$, and $\gamma=(1-\beta^2)^{-1/2}$, with
+
+$$
+\rho^2=R^2+\gamma^2(\boldsymbol\beta\cdot\mathbf R)^2,\qquad
+\phi=\frac{M}{\rho}.
+$$
+
+At first post-Minkowskian order in harmonic coordinates,
+
+$$
+\Psi=-(2\gamma^2-1)\phi,\qquad
+\Xi_a=-4\gamma^2\beta_a\phi,\qquad
+H_{ab}=2\phi(\delta_{ab}+2\gamma^2\beta_a\beta_b).
+$$
+
+Following [Kopeikin and Schäfer (1999)](https://arxiv.org/abs/gr-qc/9902030), the photon-propagation term is evaluated analytically and is exact in $\beta$.
+
+## Plane-GW Polarizations
+
+For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_{ij}=\sum_A h_A e^A_{ij}$, `lam` and `beta` are respectively the ecliptic longitude and latitude of the source direction $-\hat{\mathbf k}$ in the SSB frame. `sky_basis(lam, beta)` returns the right-handed orthonormal triad $(\hat{\mathbf k},\mathbf a,\mathbf b)$. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
+
+$$
+\begin{aligned}
+e^{+} &= \mathbf a\otimes\mathbf a-\mathbf b\otimes\mathbf b,
+& e^{\times} &= \mathbf a\otimes\mathbf b+\mathbf b\otimes\mathbf a, \\
+e^{x} &= \mathbf a\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf a,
+& e^{y} &= \mathbf b\otimes\hat{\mathbf k}+\hat{\mathbf k}\otimes\mathbf b, \\
+e^{b} &= \mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,
+& e^{l} &= \sqrt{2}\hat{\mathbf k}\otimes\hat{\mathbf k}.
+\end{aligned}
+$$
+
+They satisfy $e^A_{ij} e^B_{ij}=2\delta^{AB}$. In the static equal-arm approximation, `link_fd_polarization_response()` returns the six one-link frequency-domain response functions $R^A_{ij}(f)$. Pass a nonempty mapping of spectra, keyed by `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`, to `StaticTaijiFDResponse.xyz_polarizations()`, `.aet_polarizations()`, or `.ae_polarizations()` to obtain the corresponding response. For a prescribed orbit, `FastLISAResponseTDI.compute_polarizations()` takes a mapping of sampled time-domain strains under one or more of the six keys above, constructs the associated tensors internally, and returns the TDI response. The `source_time_s` grid must cover all retarded SSB times evaluated along the links.
+
+## Orbit Models and Data Sources
+
+GWDelta can build FastLISAResponse-compatible orbit objects from the following `base` options:
+
+| `base`            | Detector/orbit        | Source                                                       |
+| ----------------- | --------------------- | ------------------------------------------------------------ |
+| `lisa-simple`     | LISA simple equal-arm orbit | Built-in rigid heliocentric cartwheel model             |
+| `taiji-simple`    | Taiji simple equal-arm orbit | Built-in rigid heliocentric cartwheel model             |
+| `taiji-accurate`  | Taiji numerical orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) (covers 114 days) |
+| `esa`             | LISA numerical orbit  | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
+| `bbo-stage1-toy`  | BBO Stage 1 orbit     | Built-in rigid heliocentric cartwheel model                  |
+| `tianqin-toy`     | TianQin orbit         | Built-in rigid geocentric cartwheel model                     |
+| `file`            | User orbit            | Sampled NPZ/CSV orbit data                                   |
+
+**Warning:** The realistic LISA and Taiji orbit data files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
+
+GWDelta can also generate simple equal-arm orbits from the three spacecraft positions of a supplied orbit at `reference_time_s`. For the realistic LISA and Taiji orbit files, first apply `make_standard_convention_orbits()` before extracting those positions.
+
+The static helper builds a fixed equal-arm triangle with the same reference center, sets the effective arm length to the median reference arm length, and fits the analytic triangle orientation:
+
+```python
+from gwdelta import make_static_equal_arm_orbits_from_reference
+
+simple_orbits, match = make_static_equal_arm_orbits_from_reference(
+    reference_positions_m,
+    duration_s=duration_s,
+    reference_time_s=reference_time_s,
+    center_at_reference=True,
+    force_backend="cuda12x",
+)
+```
+
+The dynamic helper matches the center, arm length, and analytic triangle orientation at `reference_time_s`, then lets the simple equal-arm orbit evolve with the same sidereal-year guiding-center phase:
+
+```python
+from gwdelta import make_dynamic_equal_arm_orbits_from_reference
+
+simple_orbits, match = make_dynamic_equal_arm_orbits_from_reference(
+    reference_positions_m,
+    duration_s=duration_s,
+    reference_time_s=reference_time_s,
+    orbit_dt=600.0,
+    force_backend="cuda12x",
+)
+```
+
+The returned `match` records the reference positions, reference center, effective arm length, orientation parameters, guiding-center radius/phase, sampling cadence, and fit residual.
+
+Orbit parameters can be changed through `make_orbits_from_spec`:
+
+```python
+from gwdelta import make_orbits_from_spec
+
+orbits = make_orbits_from_spec(
+    {
+        "base": "taiji-accurate",
+        "orbit_dir": "path/to/MicroSateOrbitEclipticTCB",
+        "orbit_dt": 600.0,
+        "time_offset": 0.0,
+        "center_phase_deg": 20.0,
+        "rotate_z_deg": 0.0,
+        "translation_m": [0.0, 0.0, 0.0],
+        "scale": 1.0,
+    },
+    duration=86400.0,
+    force_backend="cpu",
+)
+```
+
+Set `base` explicitly. The default values for the other optional orbit parameters are:
+
+- `orbit_dt=600 s`;
+- `time_offset=0`;
+- `rotate_z_deg=0`;
+- `translation_m=[0,0,0]`;
+- `scale=1`;
+- `armlength_m=None`, meaning use the source orbit value;
+- `links=[12,23,31,13,32,21]`;
+- `use_project_phase_defaults=True`.
+
+Project phase defaults align LISA simple orbits to a center phase of `-20 deg` at local `t=0`, and Taiji simple/realistic orbits to `+20 deg`. Set `use_project_phase_defaults=False` to keep the raw orbit-file epoch.
+
+Family-specific defaults:
+
+- `lisa-simple`: `armlength_m=2.5e9`, guiding-center radius `1 AU`, center phase `-20 deg`, cartwheel period one sidereal year, cartwheel phase `90 deg`, detector-plane normal inclination `60 deg`.
+- `taiji-simple`: `armlength_m=3.0e9`, guiding-center radius `1 AU`, center phase `+20 deg`, cartwheel period one sidereal year, cartwheel phase `-90 deg`, detector-plane normal inclination `60 deg`.
+- `bbo-stage1-toy`: `armlength_m=5.0e7`, guiding-center radius `1 AU`, center phase `-20 deg`, cartwheel period one sidereal year, cartwheel phase `90 deg`, detector-plane normal inclination `60 deg`; see [arXiv:gr-qc/0506015](https://arxiv.org/abs/gr-qc/0506015).
+- `tianqin-toy`: geocentric radius `1.0e8 m`, arm length `sqrt(3) * 1.0e8 m`, guiding-center radius `1 AU`, fixed plane normal at longitude `120.5 deg` and latitude `-4.7 deg`; see [arXiv:2012.03260](https://arxiv.org/abs/2012.03260).
+
+<iframe class="constellation-orbit-view" src="interactive/constellation_orbits.html" title="Built-in constellation trajectories and initial configurations"></iframe>
+
+## TDI Options
+
+The time-domain interface separates the TDI delay combination from the output channel basis:
+
+- `tdi="1st generation"`: first-generation Michelson channels; see [arXiv:gr-qc/0409034](https://arxiv.org/abs/gr-qc/0409034).
+- `tdi="2nd generation"`: second-generation Michelson channels; see [arXiv:gr-qc/0310017](https://arxiv.org/abs/gr-qc/0310017).
+- `tdi="hybrid relay"`: second-generation hybrid Relay channels; see [arXiv:2403.01490](https://arxiv.org/abs/2403.01490).
+- `tdi=[...]`: a custom list of FastLISAResponse delay-term dictionaries.
+- `tdi_chan="XYZ"`: return the Michelson channels `X,Y,Z`.
+- `tdi_chan="UVW"`: return the hybrid Relay channels `U,V,W`.
+- `tdi_chan="AET"`: return the corresponding `A,E,T` channels; see [arXiv:gr-qc/0209039](https://arxiv.org/abs/gr-qc/0209039).
+- `tdi_chan="AE"`: return the corresponding `A,E` channels.
+
+Examples:
+
+```python
+from gwdelta import FastLISAResponseTDI
+
+michelson = FastLISAResponseTDI(
+    orbits=orbits,
+    tdi="2nd generation",
+    tdi_chan="AE",
+)
+
+hybrid_relay = FastLISAResponseTDI(
+    orbits=orbits,
+    tdi="hybrid relay",
+    tdi_chan="AET",
+)
+```
+
+The `tdi` selector chooses the delay combination. Use `tdi_chan="XYZ"` for the Michelson channels `X,Y,Z` and `tdi_chan="UVW"` for the hybrid Relay channels `U,V,W`; `tdi_chan="AET"` and `"AE"` return the corresponding channels.
+
+For static equal-arm models, `gwdelta.noise` provides one-way instrumental-noise PSDs, TDI1/TDI2 A/E/T PSDs, and their diagonal inverse covariance. For static unequal arms, `gwdelta.tdi_noise` provides full TDI2 instrumental-noise CSDs ([arXiv:2111.00975](https://arxiv.org/abs/2111.00975)) in the `XYZ` or `AET` basis through `frozen_tdi2_noise_covariance()`.
+
+![Frozen unequal-arm LISA TDI2 noise PSDs](figures/lisa_tdi2_unequal_arm_noise_psd.png)
+
+![Frozen unequal-arm LISA TDI2 noise PSDs, linear ordinate](figures/lisa_tdi2_unequal_arm_noise_psd_linear.png)

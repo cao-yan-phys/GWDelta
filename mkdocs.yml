@@ -1,0 +1,46 @@
+site_name: GWDelta
+site_url: https://cao-yan-phys.github.io/GWDelta/
+repo_url: https://github.com/cao-yan-phys/GWDelta
+repo_name: cao-yan-phys/GWDelta
+
+theme:
+  name: material
+  language: en
+  logo: assets/gwdelta-mark.png
+  favicon: assets/gwdelta-mark.png
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.top
+    - search.suggest
+
+nav:
+  - Documentation: index.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/extra.css

@@ -1,0 +1,30 @@
+:root {
+  --md-primary-fg-color: #23465d;
+  --md-primary-fg-color--light: #4f7187;
+  --md-primary-fg-color--dark: #173143;
+  --md-accent-fg-color: #b44a3b;
+}
+
+.md-header__button.md-logo {
+  display: block;
+}
+
+.md-header__button.md-logo img {
+  height: 1.2rem;
+  object-fit: contain;
+  width: 1.2rem;
+}
+
+.constellation-orbit-view {
+  border: 0;
+  display: block;
+  height: 720px;
+  margin: 1.5rem 0;
+  width: 100%;
+}
+
+@media screen and (max-width: 760px) {
+  .constellation-orbit-view {
+    height: 680px;
+  }
+}
