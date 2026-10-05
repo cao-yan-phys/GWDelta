@@ -13,7 +13,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from gwdelta.orbits import (
     AU_SI,
     SIDEREAL_YEAR_S,
-    build_bbo_stage1_toy_orbit_arrays,
     build_lisa_simple_orbit_arrays,
     build_taiji_simple_orbit_arrays,
     build_tianqin_toy_orbit_arrays,
@@ -22,12 +21,12 @@ from gwdelta.orbits import (
 
 OUTPUT = PROJECT_ROOT / "docs" / "interactive" / "constellation_orbits.html"
 SPACECRAFT_COLORS = ("#d62728", "#2ca02c", "#1f77b4")
-SPACECRAFT_NAMES = ("SC1", "SC2", "SC3")
+SPACECRAFT_NAMES = ("1", "2", "3")
 DISPLAY_SPACECRAFT_ORDER = (1, 0, 2)
 TRAJECTORY_SAMPLES = 721
 SLIDER_SAMPLES = 121
-DISPLAY_ARM_SCALES = {"LISA": 1.0, "Taiji": 1.0, "TianQin": 20.0, "BBO Stage 1": 50.0}
-GUIDING_CENTER_COLORS = {"LISA": "#9a5b2e", "Taiji": "#5d7e4a", "TianQin": "#496a95", "BBO Stage 1": "#805c8c"}
+DISPLAY_ARM_SCALES = {"LISA": 1.0, "Taiji": 1.0, "TianQin": 20.0}
+GUIDING_CENTER_COLORS = {"LISA": "#9a5b2e", "Taiji": "#5d7e4a", "TianQin": "#496a95"}
 NORMAL_ARROW_LENGTH_AU = 0.18
 NORMAL_ARROW_HEAD_AU = 0.05
 NORMAL_ARROW_LENGTH_LOCAL = 0.70
@@ -41,7 +40,6 @@ def orbit_models():
         ("LISA", build_lisa_simple_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
         ("Taiji", build_taiji_simple_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
         ("TianQin", build_tianqin_toy_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
-        ("BBO Stage 1", build_bbo_stage1_toy_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
     )
 
 
@@ -61,9 +59,9 @@ def axis(title, value_range):
 
 def trajectory_scene():
     return {
-        "xaxis": axis("<i>x</i> [AU]", [-1.25, 1.25]),
-        "yaxis": axis("<i>y</i> [AU]", [-1.25, 1.25]),
-        "zaxis": axis("<i>z</i> [AU]", [-1.25, 1.25]),
+        "xaxis": axis("<i>x</i>' [AU]", [-1.25, 1.25]),
+        "yaxis": axis("<i>y</i>' [AU]", [-1.25, 1.25]),
+        "zaxis": axis("<i>z</i>' [AU]", [-1.25, 1.25]),
         "aspectmode": "cube",
         "camera": {"eye": {"x": 1.15, "y": 1.15, "z": 1.5}},
     }
@@ -71,9 +69,19 @@ def trajectory_scene():
 
 def local_scene():
     return {
-        "xaxis": axis("Δ<i>x</i> / <i>L</i>", [-0.72, 0.72]),
-        "yaxis": axis("Δ<i>y</i> / <i>L</i>", [-0.72, 0.72]),
-        "zaxis": axis("Δ<i>z</i> / <i>L</i>", [-0.72, 0.72]),
+        "xaxis": axis("Δ<i>x</i>' / <i>L</i>", [-0.72, 0.72]),
+        "yaxis": axis("Δ<i>y</i>' / <i>L</i>", [-0.72, 0.72]),
+        "zaxis": axis("Δ<i>z</i>' / <i>L</i>", [-0.72, 0.72]),
+        "aspectmode": "cube",
+        "camera": {"eye": {"x": 1.35, "y": 1.35, "z": 0.9}},
+    }
+
+
+def corotating_local_scene():
+    return {
+        "xaxis": axis("Δ<i>x</i>'' / <i>L</i>", [-0.72, 0.72]),
+        "yaxis": axis("Δ<i>y</i>'' / <i>L</i>", [-0.72, 0.72]),
+        "zaxis": axis("Δ<i>z</i>'' / <i>L</i>", [-0.72, 0.72]),
         "aspectmode": "cube",
         "camera": {"eye": {"x": 1.35, "y": 1.35, "z": 0.9}},
     }
@@ -140,6 +148,40 @@ def normalized_configuration(arrays, time_index):
     return display_spacecraft_positions(relative) / arrays.armlength
 
 
+def rotation_minimizing_bases(arrays):
+    normals = np.asarray([spacecraft_order_normal(arrays, index) for index in range(len(arrays.t))])
+    bases = np.empty((len(normals), 3, 3), dtype=float)
+    reference = np.array([1.0, 0.0, 0.0])
+    if abs(np.dot(reference, normals[0])) > 0.9:
+        reference = np.array([0.0, 1.0, 0.0])
+    e1 = reference - np.dot(reference, normals[0]) * normals[0]
+    e1 /= np.linalg.norm(e1)
+    bases[0] = np.stack((e1, np.cross(normals[0], e1), normals[0]))
+    for index in range(1, len(normals)):
+        previous = normals[index - 1]
+        current = normals[index]
+        axis_vector = np.cross(previous, current)
+        sine = np.linalg.norm(axis_vector)
+        cosine = np.clip(np.dot(previous, current), -1.0, 1.0)
+        e1 = bases[index - 1, 0]
+        if sine > 1.0e-14:
+            axis_vector /= sine
+            e1 = (
+                cosine * e1
+                + sine * np.cross(axis_vector, e1)
+                + (1.0 - cosine) * np.dot(axis_vector, e1) * axis_vector
+            )
+        e1 -= np.dot(e1, current) * current
+        e1 /= np.linalg.norm(e1)
+        bases[index] = np.stack((e1, np.cross(current, e1), current))
+    return bases
+
+
+def corotating_normalized_configuration(arrays, bases, time_index):
+    coordinates = normalized_configuration(arrays, time_index)
+    return coordinates @ bases[time_index].T
+
+
 def add_current_constellation(fig, name, arrays):
     positions_au = displayed_constellation_au(name, arrays, 0)
     triangle = np.vstack((positions_au, positions_au[0]))
@@ -166,7 +208,7 @@ def add_current_constellation(fig, name, arrays):
             marker={"color": SPACECRAFT_COLORS, "size": 3.5, "line": {"color": "#ffffff", "width": 0.6}},
             hovertemplate=(
                 f"{display_label(name)}, %{{text}}<br>"
-                "<i>x</i> = %{x:.5f} AU<br><i>y</i> = %{y:.5f} AU<br><i>z</i> = %{z:.5f} AU<extra></extra>"
+                "<i>x</i>' = %{x:.5f} AU<br><i>y</i>' = %{y:.5f} AU<br><i>z</i>' = %{z:.5f} AU<extra></extra>"
             ),
             showlegend=False,
         ),
@@ -211,8 +253,18 @@ def add_current_constellation(fig, name, arrays):
     )
 
 
-def add_configuration_selector(fig, name, arrays, visible):
-    coordinates = normalized_configuration(arrays, 0)
+def add_local_configuration(fig, name, arrays, visible, *, row, col, bases=None):
+    coordinates = (
+        normalized_configuration(arrays, 0)
+        if bases is None
+        else corotating_normalized_configuration(arrays, bases, 0)
+    )
+    suffix = "'" if bases is None else "''"
+    direction = (
+        NORMAL_ARROW_LENGTH_LOCAL * spacecraft_order_normal(arrays, 0)
+        if bases is None
+        else np.array([0.0, 0.0, NORMAL_ARROW_LENGTH_LOCAL])
+    )
     triangle = np.vstack((coordinates, coordinates[0]))
     fig.add_trace(
         go.Scatter3d(
@@ -225,8 +277,8 @@ def add_configuration_selector(fig, name, arrays, visible):
             showlegend=False,
             visible=visible,
         ),
-        row=1,
-        col=2,
+        row=row,
+        col=col,
     )
     fig.add_trace(
         go.Scatter3d(
@@ -240,15 +292,14 @@ def add_configuration_selector(fig, name, arrays, visible):
             marker={"color": SPACECRAFT_COLORS, "size": 7, "line": {"color": "#ffffff", "width": 0.8}},
             hovertemplate=(
                 f"{name}, %{{text}}, <i>t</i> = 0 d<br>"
-                "Δ<i>x</i> / <i>L</i> = %{x:.4f}<br>Δ<i>y</i> / <i>L</i> = %{y:.4f}<br>Δ<i>z</i> / <i>L</i> = %{z:.4f}<extra></extra>"
+                f"Δ<i>x</i>{suffix} / <i>L</i> = %{{x:.4f}}<br>Δ<i>y</i>{suffix} / <i>L</i> = %{{y:.4f}}<br>Δ<i>z</i>{suffix} / <i>L</i> = %{{z:.4f}}<extra></extra>"
             ),
             showlegend=False,
             visible=visible,
         ),
-        row=1,
-        col=2,
+        row=row,
+        col=col,
     )
-    direction = NORMAL_ARROW_LENGTH_LOCAL * spacecraft_order_normal(arrays, 0)
     head_direction = arrow_head_direction(direction, NORMAL_ARROW_HEAD_LOCAL)
     cone_tail = direction
     fig.add_trace(
@@ -262,8 +313,8 @@ def add_configuration_selector(fig, name, arrays, visible):
             showlegend=False,
             visible=visible,
         ),
-        row=1,
-        col=2,
+        row=row,
+        col=col,
     )
     fig.add_trace(
         go.Cone(
@@ -282,8 +333,41 @@ def add_configuration_selector(fig, name, arrays, visible):
             showlegend=False,
             visible=visible,
         ),
-        row=1,
-        col=2,
+        row=row,
+        col=col,
+    )
+
+
+def local_configuration_frame_data(name, arrays, coordinates, time_index, *, bases=None):
+    suffix = "'" if bases is None else "''"
+    direction = (
+        NORMAL_ARROW_LENGTH_LOCAL * spacecraft_order_normal(arrays, time_index)
+        if bases is None
+        else np.array([0.0, 0.0, NORMAL_ARROW_LENGTH_LOCAL])
+    )
+    time_days = time_index * SIDEREAL_YEAR_S / (TRAJECTORY_SAMPLES - 1) / 86400.0
+    triangle = np.vstack((coordinates, coordinates[0]))
+    head_direction = arrow_head_direction(direction, NORMAL_ARROW_HEAD_LOCAL)
+    return (
+        go.Scatter3d(x=triangle[:, 0], y=triangle[:, 1], z=triangle[:, 2]),
+        go.Scatter3d(
+            x=coordinates[:, 0],
+            y=coordinates[:, 1],
+            z=coordinates[:, 2],
+            hovertemplate=(
+                f"{name}, %{{text}}, <i>t</i> = {time_days:.1f} d<br>"
+                f"Δ<i>x</i>{suffix} / <i>L</i> = %{{x:.4f}}<br>Δ<i>y</i>{suffix} / <i>L</i> = %{{y:.4f}}<br>Δ<i>z</i>{suffix} / <i>L</i> = %{{z:.4f}}<extra></extra>"
+            ),
+        ),
+        go.Scatter3d(x=[0.0, direction[0]], y=[0.0, direction[1]], z=[0.0, direction[2]]),
+        go.Cone(
+            x=[direction[0]],
+            y=[direction[1]],
+            z=[direction[2]],
+            u=[head_direction[0]],
+            v=[head_direction[1]],
+            w=[head_direction[2]],
+        ),
     )
 
 
@@ -308,14 +392,11 @@ for (const [label, traces] of Object.entries(groups)) {
   });
   panel.appendChild(button);
 }
-const align = document.createElement('button');
-align.textContent = 'align';
-align.style.cssText = 'position:absolute;left:56%;top:16px;z-index:10;background:rgba(255,255,255,0.88);border:1px solid #b8c2cc;border-radius:2px;color:#18212b;cursor:pointer;font:12px Open Sans,Arial,sans-serif;padding:4px 8px;text-align:left;';
-align.addEventListener('click', () => {
+plot.on('plotly_buttonclicked', (event) => {
+  if (event.button?.name !== 'align') return;
   const camera = JSON.parse(JSON.stringify(plot.layout.scene.camera));
   Plotly.relayout(plot, {'scene2.camera': camera});
 });
-host.appendChild(align);
 const cameraFor = (sceneName) => {
   const scene = plot._fullLayout[sceneName]?._scene;
   return scene && scene.getCamera ? scene.getCamera() : plot.layout[sceneName].camera;
@@ -340,7 +421,7 @@ const horizontalButton = turntableButton.cloneNode(true);
 turntableButton.replaceWith(horizontalButton);
 horizontalButton.addEventListener('click', () => {
   setHorizontalRotationButton(true);
-  Plotly.relayout(plot, {'scene.dragmode': false, 'scene2.dragmode': false});
+  Plotly.relayout(plot, {'scene.dragmode': false, 'scene2.dragmode': false, 'scene3.dragmode': false});
 });
 for (const title of ['Pan', 'Orbital rotation', 'Reset camera to default']) {
   const button = Array.from(plot.querySelectorAll('.modebar-btn')).find(
@@ -352,12 +433,18 @@ const beginHorizontalDrag = (event) => {
   if (!horizontalRotation || event.button !== 0) return;
   if (!plot.contains(event.target)) return;
   const bounds = plot.getBoundingClientRect();
-  const sceneName = event.clientX - bounds.left < bounds.width * 0.5 ? 'scene' : 'scene2';
+  const x = (event.clientX - bounds.left) / bounds.width;
+  const y = 1.0 - (event.clientY - bounds.top) / bounds.height;
+  const sceneName = ['scene', 'scene2', 'scene3'].find((name) => {
+    const domain = plot._fullLayout[name]?.domain;
+    return domain && x >= domain.x[0] && x <= domain.x[1] && y >= domain.y[0] && y <= domain.y[1];
+  });
+  if (!sceneName) return;
   drag = {
     camera: cameraFor(sceneName),
     sceneName,
     startX: event.clientX,
-    width: bounds.width * 0.47,
+    width: bounds.width * (sceneName === 'scene3' ? 0.50 : 0.47),
   };
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -386,10 +473,15 @@ document.addEventListener('mouseup', () => {
 def build_figure():
     models = orbit_models()
     fig = make_subplots(
-        rows=1,
+        rows=2,
         cols=2,
-        specs=[[{"type": "scene"}, {"type": "scene"}]],
+        specs=[
+            [{"type": "scene", "colspan": 2}, None],
+            [{"type": "scene"}, {"type": "scene"}],
+        ],
         horizontal_spacing=0.06,
+        vertical_spacing=0.08,
+        row_heights=[0.52, 0.48],
     )
     fig.add_trace(
         go.Scatter3d(
@@ -433,30 +525,49 @@ def build_figure():
         current_trace_indices.append(tuple(range(before, len(fig.data))))
 
     earth_trace_index = 1
-    initial_trace_indices = []
+    local_prime_trace_indices = []
+    corotating_trace_indices = []
     for index, (name, arrays) in enumerate(models):
         before = len(fig.data)
-        add_configuration_selector(fig, name, arrays, visible=index == 0)
-        initial_trace_indices.append(tuple(range(before, len(fig.data))))
+        add_local_configuration(fig, name, arrays, visible=index == 0, row=2, col=1)
+        local_prime_trace_indices.append(tuple(range(before, len(fig.data))))
+        before = len(fig.data)
+        add_local_configuration(
+            fig,
+            name,
+            arrays,
+            visible=index == 0,
+            row=2,
+            col=2,
+            bases=rotation_minimizing_bases(arrays),
+        )
+        corotating_trace_indices.append(tuple(range(before, len(fig.data))))
 
-    initial_trace_indices_flat = [trace_index for group in initial_trace_indices for trace_index in group]
+    local_trace_indices = [
+        trace_index
+        for groups in (local_prime_trace_indices, corotating_trace_indices)
+        for group in groups
+        for trace_index in group
+    ]
     buttons = []
     for index, (name, _arrays) in enumerate(models):
-        visible = [False] * len(initial_trace_indices_flat)
-        for trace_index in initial_trace_indices[index]:
-            visible[initial_trace_indices_flat.index(trace_index)] = True
+        visible = [False] * len(local_trace_indices)
+        for trace_index in (*local_prime_trace_indices[index], *corotating_trace_indices[index]):
+            visible[local_trace_indices.index(trace_index)] = True
         buttons.append(
             {
                 "label": name,
                 "method": "restyle",
-                "args": [{"visible": visible}, initial_trace_indices_flat],
+                "args": [{"visible": visible}, local_trace_indices],
             }
         )
 
     slider_indices = np.linspace(0, TRAJECTORY_SAMPLES - 1, SLIDER_SAMPLES, dtype=int)
     frame_trace_indices = [earth_trace_index]
     frame_trace_indices.extend(trace_index for group in current_trace_indices for trace_index in group)
-    frame_trace_indices.extend(trace_index for group in initial_trace_indices for trace_index in group)
+    frame_trace_indices.extend(trace_index for group in local_prime_trace_indices for trace_index in group)
+    frame_trace_indices.extend(trace_index for group in corotating_trace_indices for trace_index in group)
+    corotating_bases = {name: rotation_minimizing_bases(arrays) for name, arrays in models}
     frames = []
     for time_index in slider_indices:
         frame_data = [
@@ -483,7 +594,7 @@ def build_figure():
                         z=positions_au[:, 2],
                         hovertemplate=(
                             f"{display_label(name)}, <i>t</i> = {time_index * SIDEREAL_YEAR_S / (TRAJECTORY_SAMPLES - 1) / 86400.0:.1f} d<br>"
-                            "<i>x</i> = %{x:.5f} AU<br><i>y</i> = %{y:.5f} AU<br><i>z</i> = %{z:.5f} AU<extra></extra>"
+                            "<i>x</i>' = %{x:.5f} AU<br><i>y</i>' = %{y:.5f} AU<br><i>z</i>' = %{z:.5f} AU<extra></extra>"
                         ),
                     ),
                     go.Scatter3d(
@@ -503,36 +614,11 @@ def build_figure():
             )
         for name, arrays in models:
             coordinates = normalized_configuration(arrays, time_index)
-            triangle = np.vstack((coordinates, coordinates[0]))
-            direction = NORMAL_ARROW_LENGTH_LOCAL * spacecraft_order_normal(arrays, time_index)
-            head_direction = arrow_head_direction(direction, NORMAL_ARROW_HEAD_LOCAL)
-            cone_tail = direction
+            frame_data.extend(local_configuration_frame_data(name, arrays, coordinates, time_index))
+        for name, arrays in models:
+            coordinates = corotating_normalized_configuration(arrays, corotating_bases[name], time_index)
             frame_data.extend(
-                (
-                    go.Scatter3d(x=triangle[:, 0], y=triangle[:, 1], z=triangle[:, 2]),
-                    go.Scatter3d(
-                        x=coordinates[:, 0],
-                        y=coordinates[:, 1],
-                        z=coordinates[:, 2],
-                        hovertemplate=(
-                            f"{name}, %{{text}}, <i>t</i> = {time_index * SIDEREAL_YEAR_S / (TRAJECTORY_SAMPLES - 1) / 86400.0:.1f} d<br>"
-                            "Δ<i>x</i> / <i>L</i> = %{x:.4f}<br>Δ<i>y</i> / <i>L</i> = %{y:.4f}<br>Δ<i>z</i> / <i>L</i> = %{z:.4f}<extra></extra>"
-                        ),
-                    ),
-                    go.Scatter3d(
-                        x=[0.0, direction[0]],
-                        y=[0.0, direction[1]],
-                        z=[0.0, direction[2]],
-                    ),
-                    go.Cone(
-                        x=[cone_tail[0]],
-                        y=[cone_tail[1]],
-                        z=[cone_tail[2]],
-                        u=[head_direction[0]],
-                        v=[head_direction[1]],
-                        w=[head_direction[2]],
-                    ),
-                )
+                local_configuration_frame_data(name, arrays, coordinates, time_index, bases=corotating_bases[name])
             )
         frames.append(
             go.Frame(
@@ -558,8 +644,8 @@ def build_figure():
         template="plotly_white",
         paper_bgcolor="#ffffff",
         plot_bgcolor="#ffffff",
-        height=680,
-        margin={"l": 12, "r": 12, "t": 62, "b": 70},
+        height=1260,
+        margin={"l": 12, "r": 12, "t": 62, "b": 12},
         showlegend=False,
         updatemenus=[
             {
@@ -567,9 +653,9 @@ def build_figure():
                 "active": 0,
                 "direction": "down",
                 "showactive": True,
-                "x": 0.79,
+                "x": 0.89,
                 "xanchor": "center",
-                "y": 1.08,
+                "y": 0.48,
                 "yanchor": "bottom",
             },
             {
@@ -578,7 +664,7 @@ def build_figure():
                 "showactive": False,
                 "x": 0.01,
                 "xanchor": "left",
-                "y": -0.075,
+                "y": 0.48,
                 "yanchor": "top",
                 "pad": {"r": 5, "t": 10},
                 "buttons": [
@@ -609,15 +695,32 @@ def build_figure():
                     },
                 ],
             },
+            {
+                "type": "buttons",
+                "direction": "left",
+                "showactive": False,
+                "x": 0.83,
+                "xanchor": "right",
+                "y": 0.48,
+                "yanchor": "bottom",
+                "pad": {"r": 4, "t": 0, "b": 0},
+                "buttons": [
+                    {
+                        "label": "align",
+                        "name": "align",
+                        "method": "skip",
+                    }
+                ],
+            },
         ],
         sliders=[
             {
                 "active": 0,
                 "currentvalue": {"prefix": "<i>t</i> = ", "suffix": " d"},
-                "len": 0.72,
+                "len": 0.64,
                 "x": 0.14,
                 "xanchor": "left",
-                "y": -0.075,
+                "y": 0.48,
                 "yanchor": "top",
                 "pad": {"t": 10, "b": 0},
                 "steps": slider_steps,
@@ -625,6 +728,7 @@ def build_figure():
         ],
         scene=trajectory_scene(),
         scene2=local_scene(),
+        scene3=corotating_local_scene(),
     )
     fig.frames = frames
     toggle_groups = {"Sun": [0], "Earth": [earth_trace_index]}
