@@ -1099,7 +1099,7 @@ def _sampled_from_arrays(arrays: OrbitArrays, *, force_backend: str | None = Non
     )
 
 
-def build_tianqin_toy_orbit_arrays(
+def build_tianqin_simple_orbit_arrays(
     *,
     duration: float,
     orbit_dt: float = LINEAR_INTERP_TIMESTEP,
@@ -1143,7 +1143,7 @@ def build_tianqin_toy_orbit_arrays(
     return build_orbit_arrays(t_local, x, armlength=float(arm_length))
 
 
-def build_bbo_stage1_toy_orbit_arrays(
+def build_bbo_stage1_simple_orbit_arrays(
     *,
     duration: float,
     orbit_dt: float = LINEAR_INTERP_TIMESTEP,
@@ -1235,7 +1235,7 @@ def make_taiji_simple_orbits(
     return _sampled_from_arrays(arrays, force_backend=force_backend)
 
 
-def make_tianqin_toy_orbits(
+def make_tianqin_simple_orbits(
     *,
     duration: float,
     orbit_dt: float = LINEAR_INTERP_TIMESTEP,
@@ -1251,7 +1251,7 @@ def make_tianqin_toy_orbits(
     normal_lat: float = TIANQIN_J0806_LAT,
     force_backend: str | None = None,
 ) -> SampledOrbits:
-    arrays = build_tianqin_toy_orbit_arrays(
+    arrays = build_tianqin_simple_orbit_arrays(
         duration=duration,
         orbit_dt=orbit_dt,
         time_offset=time_offset,
@@ -1268,7 +1268,7 @@ def make_tianqin_toy_orbits(
     return _sampled_from_arrays(arrays, force_backend=force_backend)
 
 
-def make_bbo_stage1_toy_orbits(
+def make_bbo_stage1_simple_orbits(
     *,
     duration: float,
     orbit_dt: float = LINEAR_INTERP_TIMESTEP,
@@ -1282,7 +1282,7 @@ def make_bbo_stage1_toy_orbits(
     plane_inclination: float = BBO_STAGE1_PLANE_INCLINATION,
     force_backend: str | None = None,
 ) -> SampledOrbits:
-    arrays = build_bbo_stage1_toy_orbit_arrays(
+    arrays = build_bbo_stage1_simple_orbit_arrays(
         duration=duration,
         orbit_dt=orbit_dt,
         time_offset=time_offset,
@@ -1438,10 +1438,10 @@ def make_orbits_from_spec(
         arrays = _transform_arrays(arrays, orbit_spec)
         return _sampled_from_arrays(arrays, force_backend=force_backend)
 
-    if base in ("tianqin-toy", "tianqin", "tq"):
+    if base in ("tianqin-simple", "tianqin", "tq"):
         if orbit_spec.duration is None:
-            raise ValueError("duration is required for tianqin-toy orbits")
-        arrays = build_tianqin_toy_orbit_arrays(
+            raise ValueError("duration is required for tianqin-simple orbits")
+        arrays = build_tianqin_simple_orbit_arrays(
             duration=orbit_spec.duration,
             orbit_dt=orbit_spec.orbit_dt,
             time_offset=orbit_spec.time_offset,
@@ -1458,10 +1458,10 @@ def make_orbits_from_spec(
         arrays = _transform_arrays(arrays, orbit_spec)
         return _sampled_from_arrays(arrays, force_backend=force_backend)
 
-    if base in ("bbo-stage1-toy", "bbo-stage1", "bbo"):
+    if base in ("bbo-stage1-simple", "bbo-stage1", "bbo"):
         if orbit_spec.duration is None:
-            raise ValueError("duration is required for bbo-stage1-toy orbits")
-        arrays = build_bbo_stage1_toy_orbit_arrays(
+            raise ValueError("duration is required for bbo-stage1-simple orbits")
+        arrays = build_bbo_stage1_simple_orbit_arrays(
             duration=orbit_spec.duration,
             orbit_dt=orbit_spec.orbit_dt,
             time_offset=orbit_spec.time_offset,
@@ -1500,7 +1500,7 @@ def make_orbits_from_spec(
 
     raise ValueError(
         "orbit spec base must be esa, equal-armlength, lisa-simple, taiji-simple, taiji-triangle, "
-        "taiji-accurate, tianqin-toy, bbo-stage1-toy, or file"
+        "taiji-accurate, tianqin-simple, bbo-stage1-simple, or file"
     )
 
 

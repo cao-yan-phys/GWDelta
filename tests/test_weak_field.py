@@ -416,10 +416,10 @@ class WeakFieldTests(unittest.TestCase):
         engine = WeakFieldLinkResponse(
             orbits=self.orbits, quadrature_order=12, force_backend="cpu"
         )
-        result = engine.compute(np.asarray([1000.0]), field)
-        receiver_radius = np.linalg.norm(result.geometry.x_reception_m[:, 0], axis=-1)
-        emitter_radius = np.linalg.norm(result.geometry.x_emission_m[:, 0], axis=-1)
-        expected = G_SI * mass_lost / C_SI**2 * (
+        result = engine.compute(np.asarray([1000.0]), field, include_endpoint_motion=False)
+        receiver_radius = np.linalg.norm(result.geometry.x_reception_m[:, 0].astype(np.longdouble), axis=-1)
+        emitter_radius = np.linalg.norm(result.geometry.x_emission_m[:, 0].astype(np.longdouble), axis=-1)
+        expected = np.longdouble(G_SI) * mass_lost / np.longdouble(C_SI)**2 * (
             1.0 / emitter_radius - 1.0 / receiver_radius
         )
         np.testing.assert_allclose(
@@ -473,7 +473,8 @@ class WeakFieldTests(unittest.TestCase):
             atol=1.0e-24,
         )
 
-    def test_vaidya_test_mass_motion_matches_analytic_shell_integral(self) -> None:
+    def test_vaidya_static_synchronous_motion_and_coordinate_velocity(self) -> None:
+        from gwdelta.vaidya_response import profile_integrals
         mass_lost = 2.0e25
         transition_time = 50.0
         radius = 1.0e10
@@ -502,8 +503,11 @@ class WeakFieldTests(unittest.TestCase):
             - (profile(retarded_time[-1]) - profile(retarded_time[0]))
             / (C_SI * radius)
         )
+        n, r, f, _fdot, j, _q, _argument = profile_integrals(field, times, positions)
+        coordinate_velocity = G_SI*mass_lost*(j/r**2-f/(C_SI*r))[:, None]*n
+        np.testing.assert_array_equal(motion["delta_velocity_m_s"], np.zeros_like(positions))
         np.testing.assert_allclose(
-            motion["delta_velocity_m_s"][-1],
+            motion["delta_velocity_m_s"][-1]+coordinate_velocity[-1]-coordinate_velocity[0],
             [expected_velocity, 0.0, 0.0],
             rtol=2.0e-8,
             atol=1.0e-20,

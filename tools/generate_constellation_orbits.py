@@ -15,7 +15,7 @@ from gwdelta.orbits import (
     SIDEREAL_YEAR_S,
     build_lisa_simple_orbit_arrays,
     build_taiji_simple_orbit_arrays,
-    build_tianqin_toy_orbit_arrays,
+    build_tianqin_simple_orbit_arrays,
 )
 
 
@@ -39,7 +39,7 @@ def orbit_models():
     return (
         ("LISA", build_lisa_simple_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
         ("Taiji", build_taiji_simple_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
-        ("TianQin", build_tianqin_toy_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
+        ("TianQin", build_tianqin_simple_orbit_arrays(duration=duration_s, orbit_dt=orbit_dt_s)),
     )
 
 

@@ -1,12 +1,12 @@
 # GWDelta
 
-<p align="center">
-  <img src="figures/logo.png" alt="GWDelta logo" width="300">
-</p>
+<div class="gwdelta-masthead">
+  <img src="assets/gwdelta-mark.png" alt="GWDelta logo" width="300">
+</div>
 
 GWDelta is a toolkit for fast single-detector and detector-network response calculations for space-based gravitational-wave detectors, focusing on LISA-like triangular constellations.
 
-The response code can run on CPU or through `force_backend="cuda12x"` with the modified `fastlisaresponse` fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and `lisatools`.
+The response code can run on CPU or through `force_backend="cuda12x"` with the modified [`fastlisaresponse`](https://github.com/mikekatz04/lisa-on-gpu) fork [`cao-yan-phys/lisa-on-gpu`](https://github.com/cao-yan-phys/lisa-on-gpu) and [`lisatools`](https://github.com/mikekatz04/LISAanalysistools).
 
 Besides plane gravitational waves, GWDelta can also calculate TDI signals from general linear metric perturbations in the fixed-background-trajectory nonrelativistic test-mass approximation.
 
@@ -17,7 +17,7 @@ Besides plane gravitational waves, GWDelta can also calculate TDI signals from g
 The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
 
 - second-generation $A,E$ channels with a realistic Taiji orbit;
-- second-generation $A,E$ channels with a static equal-arm (SEA) orbit;
+- second-generation $A,E$ channels with a simple orbit in the static equal-arm approximation (SEA);
 - an analytic static equal-arm frequency-domain response.
 
 ![Taiji TDI response comparison](figures/taiji_static_tdi2_memory_demo.png)
@@ -217,13 +217,7 @@ $$
 ds^2=-\left[1-\frac{2M(u)}{R}\right]du^2-2\,du\,dR+R^2(d\theta^2+\sin^2\theta\,d\phi^2).
 $$
 
-Here $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, $u=t-R$, and $M(u)=M_{\mathrm i}-\Delta M F(u)$, with $\Delta M>0$ and
-
-$$
-F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},
-$$
-
-where $u_0$ and $\tau>0$ set the transition time and width. With $t=u+R$, in the weak-field regime,
+Here $\mathbf R=\mathbf x-\mathbf x_{\mathrm{s}}$, $R=|\mathbf R|$, $\mathbf n=\mathbf R/R$, $u=t-R$, and $M(u)=M_{\mathrm i}-\Delta M F(u)$, with $\Delta M>0$. The mass-loss profile $F(u)$ is nondecreasing, with $F(-\infty)=0$ and $F(+\infty)=1$. With $t=u+R$, in the weak-field regime,
 
 $$
 \Psi=-\frac{M(u)}{R},\qquad
@@ -231,7 +225,15 @@ $$
 H_{ab}=\frac{2M(u)}{R}n_an_b.
 $$
 
-`SmoothVaidyaMassLoss` omits the initial mass $M_{\mathrm i}$ in $M(u)=M_{\mathrm i}-\Delta M F(u)$.
+`SmoothVaidyaMassLoss` omits the initial mass $M_{\mathrm i}$ in $M(u)=M_{\mathrm i}-\Delta M F(u)$, and uses the smooth profile:
+
+$$
+F(u)=\frac{1+\tanh[(u-u_0)/\tau]}{2},
+$$
+
+where $u_0$ and $\tau>0$ set the transition time and width.
+
+To improve numerical stability, the one-way frequency shift is calculated in synchronous gauge, including photon propagation and endpoint motion (the result in the SEA has been checked against the calculation in the gauge used above). The calculation runs on CPU. Automatic endpoint integration requires pre-loss orbit coverage; otherwise, initial conditions should be supplied through `integrate_test_mass_motion()`. The optional `background_acceleration_jacobian(t, x, v)` accounts for the leading-order effects due to the change in background acceleration $\mathbf{a}_{\mathrm{bg}}$ caused by the endpoint displacement. It takes the SSB time $[\text{s}]$ and the 3D background position $\text{[m]}$ and velocity $[\text{m}\,\text{s}^{-1}]$ and returns the $3\times3$ matrix $\partial a_{\mathrm{bg}}^i/\partial x^j$ $[\mathrm{s}^{-2}]$.
 
 
 ### `ConstantVelocityPointMass`
@@ -287,8 +289,8 @@ GWDelta can build FastLISAResponse-compatible orbit objects from the following `
 | `taiji-simple`    | Taiji simple equal-arm orbit | Built-in rigid heliocentric cartwheel model             |
 | `taiji-accurate`  | Taiji numerical orbit | `MicroSateOrbit.hdf5` from [`TriangleDataCenter/Triangle-Simulator/OrbitData/MicroSateOrbitEclipticTCB`](https://github.com/TriangleDataCenter/Triangle-Simulator/tree/main/OrbitData/MicroSateOrbitEclipticTCB) (covers 114 days) |
 | `esa`             | LISA numerical orbit  | `ESAOrbits` from [`LISAanalysistools`](https://github.com/mikekatz04/LISAanalysistools) |
-| `bbo-stage1-toy`  | BBO Stage 1 orbit     | Built-in rigid heliocentric cartwheel model                  |
-| `tianqin-toy`     | TianQin orbit         | Built-in rigid geocentric cartwheel model                     |
+| `bbo-stage1-simple` | BBO Stage 1 orbit   | Built-in rigid heliocentric cartwheel model                  |
+| `tianqin-simple`  | TianQin orbit         | Built-in rigid geocentric cartwheel model                     |
 | `file`            | User orbit            | Sampled NPZ/CSV orbit data                                   |
 
 **Warning:** The realistic LISA and Taiji orbit data files use the reverse `1,2,3` spacecraft ordering from the analytic response formulas in this code; GWDelta relabels spacecraft `1` and `2` and the corresponding light-time links internally when building the analytic-comparison orbit.
@@ -363,8 +365,8 @@ Family-specific defaults:
 
 - `lisa-simple`: `armlength_m=2.5e9`, guiding-center radius `1 AU`, center phase `-20 deg`, cartwheel period one sidereal year, cartwheel phase `90 deg`, detector-plane normal inclination `60 deg`.
 - `taiji-simple`: `armlength_m=3.0e9`, guiding-center radius `1 AU`, center phase `+20 deg`, cartwheel period one sidereal year, cartwheel phase `-90 deg`, detector-plane normal inclination `60 deg`.
-- `bbo-stage1-toy`: `armlength_m=5.0e7`, guiding-center radius `1 AU`, center phase `-20 deg`, cartwheel period one sidereal year, cartwheel phase `90 deg`, detector-plane normal inclination `60 deg`; see [arXiv:gr-qc/0506015](https://arxiv.org/abs/gr-qc/0506015).
-- `tianqin-toy`: geocentric radius `1.0e8 m`, arm length `sqrt(3) * 1.0e8 m`, guiding-center radius `1 AU`, fixed plane normal at longitude `120.5 deg` and latitude `-4.7 deg`; see [arXiv:2012.03260](https://arxiv.org/abs/2012.03260).
+- `bbo-stage1-simple`: `armlength_m=5.0e7`, guiding-center radius `1 AU`, center phase `-20 deg`, cartwheel period one sidereal year, cartwheel phase `90 deg`, detector-plane normal inclination `60 deg`; see [arXiv:gr-qc/0506015](https://arxiv.org/abs/gr-qc/0506015).
+- `tianqin-simple`: geocentric radius `1.0e8 m`, arm length `sqrt(3) * 1.0e8 m`, guiding-center radius `1 AU`, fixed plane normal at longitude `120.5 deg` and latitude `-4.7 deg`; see [arXiv:2012.03260](https://arxiv.org/abs/2012.03260).
 
 <iframe class="constellation-orbit-view" src="interactive/constellation_orbits.html" title="Built-in constellation trajectories and initial configurations"></iframe>
 

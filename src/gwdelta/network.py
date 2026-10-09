@@ -25,8 +25,8 @@ DETECTOR_ALIASES = {
 DEFAULT_DETECTOR_BASES = {
     "lisa": "lisa-simple",
     "taiji": "taiji-simple",
-    "tianqin": "tianqin-toy",
-    "bbo": "bbo-stage1-toy",
+    "tianqin": "tianqin-simple",
+    "bbo": "bbo-stage1-simple",
 }
 
 

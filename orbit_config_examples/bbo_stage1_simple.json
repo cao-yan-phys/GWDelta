@@ -1,5 +1,5 @@
 {
-  "base": "bbo-stage1-toy",
+  "base": "bbo-stage1-simple",
   "orbit_dt": 600.0,
   "armlength_m": 50000000.0,
   "center_radius": 149600000000.0,

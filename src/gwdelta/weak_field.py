@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, localcontext
 from typing import Any, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 from scipy.interpolate import CubicSpline
+from scipy.integrate import quad
+from scipy.optimize import brentq
 
 from .array_backend import ArrayBackend, infer_backend_from_array, select_array_backend
 from .cuda_runtime import ensure_cuda_dll_directories
@@ -84,6 +87,13 @@ class TestMassPerturbation:
     t: Any
     acceleration_m_s2: Any
     delta_velocity_m_s: Any
+    velocity_evaluator: Any = None
+    background_velocity_evaluator: Any = None
+    position_evaluator: Any = None
+    clock_evaluator: Any = None
+    source_model: Any = None
+    coordinate_gauge: str | None = None
+    background_feedback: bool = False
 
     def as_numpy(self) -> dict[str, np.ndarray]:
         backend = infer_backend_from_array(self.delta_velocity_m_s)
@@ -526,16 +536,20 @@ def _sample_delta_velocity(
         delta_receiver = np.empty(geometry.direction.shape, dtype=float)
         delta_emitter = np.empty_like(delta_receiver)
         for link_index, (receiver, emitter) in enumerate(zip(receivers, emitters)):
-            delta_receiver[link_index] = _sample_series(
-                support_time,
-                values[:, receiver, :],
-                geometry.t_reception_s,
-            )
-            delta_emitter[link_index] = _sample_series(
-                support_time,
-                values[:, emitter, :],
-                geometry.t_emission_s[link_index],
-            )
+            if callable(delta_velocity.velocity_evaluator):
+                delta_receiver[link_index] = delta_velocity.velocity_evaluator(
+                    geometry.t_reception_s
+                )[:, receiver, :]
+                delta_emitter[link_index] = delta_velocity.velocity_evaluator(
+                    geometry.t_emission_s[link_index]
+                )[:, emitter, :]
+            else:
+                delta_receiver[link_index] = _sample_series(
+                    support_time, values[:, receiver, :], geometry.t_reception_s
+                )
+                delta_emitter[link_index] = _sample_series(
+                    support_time, values[:, emitter, :], geometry.t_emission_s[link_index]
+                )
         return delta_receiver, delta_emitter
 
     values = np.asarray(_to_numpy(delta_velocity), dtype=float)
@@ -581,10 +595,60 @@ class WeakFieldLinkResponse:
         field: WeakMetricField,
         *,
         delta_velocity_m_s=None,
+        include_endpoint_motion: bool | None = None,
+        background_acceleration_jacobian=None,
     ) -> LinkSignalResult:
         if not isinstance(field, WeakMetricField):
             raise TypeError("field must implement metric() and time_derivative()")
         geometry = build_link_geometry(self.orbits, t_reception_s)
+        automatic_velocity = False
+        if isinstance(field, SmoothVaidyaMassLoss):
+            if include_endpoint_motion is not False:
+                from .vaidya_response import refine_geometry
+                geometry = refine_geometry(self.orbits, geometry)
+            if include_endpoint_motion is False and delta_velocity_m_s is not None:
+                raise ValueError("endpoint motion cannot be disabled with supplied velocities")
+            if include_endpoint_motion is not False and delta_velocity_m_s is None:
+                support = np.unique(np.concatenate((
+                    [min(float(self.orbits.t_base[0]), float(np.min(geometry.t_emission_s)))],
+                    np.asarray(_to_numpy(self.orbits.t_base), dtype=float),
+                    [float(geometry.t_reception_s[-1])],
+                )))
+                support = support[support <= geometry.t_reception_s[-1]]
+                positions = _sample_series(
+                    np.asarray(_to_numpy(self.orbits.t_base), dtype=float),
+                    np.asarray(_to_numpy(self.orbits.x_base), dtype=float), support,
+                )
+                if np.any(field._profile(support[0], positions[0])[4] > 1.0e-12):
+                    raise ValueError(
+                        "automatic Vaidya endpoint motion requires pre-loss orbit support; "
+                        "supply a TestMassPerturbation with explicit initial velocities"
+                    )
+                delta_velocity_m_s = field.integrate_test_mass_motion(
+                    support, positions,
+                    background_acceleration_jacobian=background_acceleration_jacobian,
+                    _background_spline=CubicSpline(
+                        np.asarray(_to_numpy(self.orbits.t_base), dtype=float)-support[0],
+                        np.asarray(_to_numpy(self.orbits.x_base), dtype=float), axis=0,
+                        extrapolate=True,
+                    ),
+                )
+                automatic_velocity = True
+            if include_endpoint_motion is not False:
+                from .vaidya_response import link_response
+                if not isinstance(delta_velocity_m_s, TestMassPerturbation):
+                    raise ValueError("complete Vaidya response requires a TestMassPerturbation")
+                result = link_response(field, geometry, delta_velocity_m_s, self.orbits, backend=self.backend)
+                result.metadata.update({
+                    "force_backend": self.force_backend,
+                    "worldline_velocity_source": "automatic_vaidya" if automatic_velocity else "TestMassPerturbation",
+                    "background_feedback": delta_velocity_m_s.background_feedback,
+                })
+                return result
+        elif background_acceleration_jacobian is not None:
+            raise ValueError("background feedback is available only for SmoothVaidyaMassLoss")
+        elif include_endpoint_motion is True and delta_velocity_m_s is None:
+            raise ValueError("automatic endpoint motion is available only for SmoothVaidyaMassLoss")
         xp = self.backend.xp
         nlinks = len(geometry.links)
         nt = len(geometry.t_reception_s)
@@ -666,11 +730,13 @@ class WeakFieldLinkResponse:
                     "endpoint velocity"
                 ),
                 "direct_evaluation": (
-                    "analytic" if callable(analytic_direct) else "quadrature"
+                    "vaidya_adaptive" if isinstance(field, SmoothVaidyaMassLoss)
+                    else "analytic" if callable(analytic_direct) else "quadrature"
                 ),
                 "worldline_velocity_included": delta_velocity_m_s is not None,
                 "worldline_velocity_source": (
-                    "TestMassPerturbation"
+                    "automatic_vaidya"
+                    if automatic_velocity else "TestMassPerturbation"
                     if isinstance(delta_velocity_m_s, TestMassPerturbation)
                     else "aligned_array" if delta_velocity_m_s is not None else None
                 ),
@@ -1240,6 +1306,15 @@ class SmoothVaidyaMassLoss:
             self, "origin_m", tuple(float(value) for value in origin)
         )
 
+    def _retarded_offset(self, time, position):
+        with localcontext() as context:
+            context.prec = 40
+            r2 = sum((Decimal.from_float(float(x))-Decimal.from_float(float(o)))**2
+                     for x, o in zip(position, self.origin_m))
+            return float(Decimal.from_float(float(time))
+                         - Decimal.from_float(self.center_retarded_time_s)
+                         - r2.sqrt()/Decimal.from_float(C_SI))
+
     def _profile(self, t_s, x_m):
         xp = _xp_for(x_m)
         x = xp.asarray(x_m, dtype=xp.float64)
@@ -1250,13 +1325,24 @@ class SmoothVaidyaMassLoss:
         if bool(_to_numpy(xp.any(radius <= 0.0))):
             raise ValueError("Vaidya metric is singular at its source origin")
         radial = displacement / radius[..., xp.newaxis]
-        retarded_time = xp.asarray(t_s, dtype=xp.float64) - radius / C_SI
-        argument = (retarded_time - float(self.center_retarded_time_s)) / float(
-            self.transition_time_s
+        time = xp.asarray(t_s, dtype=xp.float64)
+        if time.ndim == 1 and x.ndim > 2 and time.shape[0] == x.shape[0]:
+            time = time.reshape((len(time),) + (1,) * (x.ndim - 2))
+        if bool(_to_numpy(xp.any(~xp.isfinite(x)))) or bool(_to_numpy(xp.any(~xp.isfinite(time)))):
+            raise ValueError("Vaidya evaluation coordinates must be finite")
+        reference_position = x.reshape(-1, 3)[0]
+        reference_time = float(_to_numpy(time.reshape(-1)[0]))
+        reference_displacement = reference_position-xp.asarray(self.origin_m)
+        reference_radius = xp.linalg.norm(reference_displacement)
+        dx = x-reference_position
+        radius_difference = xp.sum(dx*(2*reference_displacement+dx), axis=-1)/(radius+reference_radius)
+        offset = self._retarded_offset(reference_time, _to_numpy(reference_position))
+        argument = (offset+(time-reference_time)-radius_difference/C_SI)/self.transition_time_s
+        exponential = xp.exp(-2.0 * xp.abs(argument))
+        profile = xp.where(argument >= 0.0, 1.0, exponential) / (1.0 + exponential)
+        profile_dot = 2.0 * exponential / (
+            float(self.transition_time_s) * (1.0 + exponential)**2
         )
-        tanh_argument = xp.tanh(argument)
-        profile = 0.5 * (1.0 + tanh_argument)
-        profile_dot = 0.5 * (1.0 - tanh_argument**2) / float(self.transition_time_s)
         amplitude = G_SI * float(self.delta_mass_kg) / (C_SI**2 * radius)
         return xp, radial, radius, amplitude, profile, profile_dot
 
@@ -1298,16 +1384,107 @@ class SmoothVaidyaMassLoss:
         background_position_m,
         *,
         initial_delta_velocity_m_s=None,
+        initial_delta_position_m=None,
+        initial_delta_clock_s=None,
+        background_acceleration_jacobian=None,
+        _background_spline=None,
     ) -> TestMassPerturbation:
-        xp = _xp_for(background_position_m)
-        t = xp.asarray(t_s, dtype=xp.float64)
-        position = xp.asarray(background_position_m, dtype=xp.float64)
-        return _integrate_sampled_acceleration(
-            t,
-            position,
-            self.acceleration(t, position),
+        from .vaidya_response import integrate_motion
+
+        return integrate_motion(
+            self, t_s, background_position_m,
             initial_delta_velocity_m_s=initial_delta_velocity_m_s,
+            initial_delta_position_m=initial_delta_position_m,
+            initial_delta_clock_s=initial_delta_clock_s,
+            background_acceleration_jacobian=background_acceleration_jacobian,
+            background_spline=_background_spline,
         )
+
+    def direct_link_signal(self, geometry: LinkGeometry, *, backend=None):
+        selected = backend or select_array_backend(prefer_gpu=False, force="cpu")
+        return selected.xp.asarray(self._direct_signal(geometry))
+
+
+    def _direct_signal(self, geometry):
+        result = np.empty(geometry.t_emission_s.shape)
+        origin = np.asarray(self.origin_m, dtype=np.longdouble)
+        mass_scale = np.longdouble(G_SI) * self.delta_mass_kg / np.longdouble(C_SI)**2
+        for link, sample in np.ndindex(result.shape):
+            xe = np.asarray(geometry.x_emission_m[link, sample], dtype=np.longdouble) - origin
+            xr = np.asarray(geometry.x_reception_m[link, sample], dtype=np.longdouble) - origin
+            chord = np.asarray(
+                geometry.x_reception_m[link, sample]-geometry.x_emission_m[link, sample],
+                dtype=np.longdouble,
+            )
+            length2 = np.dot(chord, chord)
+            closest = np.clip(-np.dot(xe, chord) / length2, 0., 1.)
+            if np.linalg.norm(xe + closest * chord) <= 128*np.finfo(float).eps*max(np.linalg.norm(xe), np.linalg.norm(xr)):
+                raise ValueError("photon chord intersects the Vaidya source origin")
+            k = np.asarray(geometry.direction[link, sample], dtype=np.longdouble)
+            te = np.longdouble(geometry.t_emission_s[link, sample])
+            lt = np.longdouble(geometry.light_time_s[link, sample])
+            re, rr = np.linalg.norm(xe), np.linalg.norm(xr)
+            length = np.sqrt(length2)
+            eta = C_SI * lt / length
+            if abs(eta - 1) < 32*np.finfo(float).eps:
+                eta = np.longdouble(1.)
+
+            time_offset = self._retarded_offset(te, geometry.x_emission_m[link, sample])
+            def argument(z):
+                radius = np.linalg.norm(xe + chord*z)
+                dr = z*(2*np.dot(xe, chord)+length2*z)/(radius+re)
+                return (time_offset+lt*z-dr/C_SI)/self.transition_time_s
+
+            def profile(arg):
+                ex = np.exp(-2*np.abs(arg))
+                return (1 if arg >= 0 else ex)/(1+ex)
+
+            ae, ar = argument(0.), argument(1.)
+            endpoint = mass_scale * (profile(ae)/re - profile(ar)/rr)
+            breaks = [0., 1.]
+            derivative = lambda z: lt - np.dot(chord, (xe + chord*z)/np.linalg.norm(xe + chord*z))/C_SI
+            monotone = [0., 1.]
+            if derivative(0.) * derivative(1.) < 0:
+                monotone.insert(1, brentq(derivative, 0., 1.))
+            for lower, upper in zip(monotone[:-1], monotone[1:]):
+                alo, ahi = argument(lower), argument(upper)
+                for target in (-24., -8., -2., 0., 2., 8., 24.):
+                    if min(alo, ahi) < target < max(alo, ahi):
+                        breaks.append(brentq(lambda z: float(argument(z)-target), lower, upper, xtol=1e-14))
+            breaks.extend(monotone)
+            breaks = sorted(set(breaks))
+
+            def b_and_derivative(z):
+                rvec = xe + chord*z
+                radius = np.linalg.norm(rvec)
+                mu = np.dot(k, rvec/radius)
+                if eta == 1:
+                    w = 1 - mu
+                    wprime = -1.
+                else:
+                    denominator = eta - mu
+                    if abs(denominator) < 1e-10:
+                        raise ValueError("Vaidya photon chord is too close to a retarded-time turning point")
+                    w = eta*(1-mu)**2/denominator
+                    wprime = eta*(1-mu)*(1+mu-2*eta)/denominator**2
+                derivative = length/radius**2 * (wprime*(1-mu**2) - w*mu)
+                return w/radius, derivative, mu, radius
+
+            def integrand(z):
+                return float(re**2/length * b_and_derivative(z)[1] * profile(argument(z)))
+
+            bulk = np.longdouble(0.)
+            for lower, upper in zip(breaks[:-1], breaks[1:]):
+                value, error = quad(integrand, lower, upper, epsabs=2e-14, epsrel=2e-12, limit=100)
+                if error > max(2e-13, abs(value)*2e-11):
+                    raise RuntimeError("Vaidya photon integral failed to converge")
+                bulk += np.longdouble(value)
+            be, _de, mue, _re = b_and_derivative(0.)
+            br, _dr, mur, _rr = b_and_derivative(1.)
+            fe, fr = profile(ae), profile(ar)
+            bulk = bulk*length/re**2
+            result[link, sample] = endpoint if min(ae, ar) > 40 else endpoint + mass_scale*(br*fr-be*fe-bulk)
+        return result
 
 
 __all__ = [
