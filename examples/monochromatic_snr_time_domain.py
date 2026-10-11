@@ -42,6 +42,7 @@ def preconfigure_cuda_environment() -> None:
 
 preconfigure_cuda_environment()
 
+from gwdelta.fourier import rfft
 from gwdelta import (  # noqa: E402
     DETECTOR_ORDER,
     DetectorNetwork,
@@ -167,7 +168,7 @@ def compute_snr(
     total_snr2 = 0.0
     for idx, channel in enumerate(channel_order):
         values = np.asarray(channels[channel], dtype=float)
-        spectrum = dt * np.fft.rfft(values)
+        spectrum = dt * rfft(values)
         contribution = np.zeros_like(freqs, dtype=float)
         contribution[positive] = (
             4.0

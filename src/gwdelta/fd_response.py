@@ -96,13 +96,13 @@ def link_fd_polarization_response(
     kx_em_s = x_em @ k / C_SI
 
     phase_em = np.exp(
-        -2j
+        2j
         * np.pi
         * freqs[np.newaxis, :]
         * (arm_s[:, np.newaxis] + kx_em_s[:, np.newaxis])
     )
     phase_rec = np.exp(
-        -2j * np.pi * freqs[np.newaxis, :] * kx_rec_s[:, np.newaxis]
+        2j * np.pi * freqs[np.newaxis, :] * kx_rec_s[:, np.newaxis]
     )
     transfer = (phase_em - phase_rec) / (1.0 - k_dot_n)[:, np.newaxis]
     return {
@@ -218,7 +218,7 @@ def xyz_from_link_combinations(
             base = cyclic_permutation(int(term["link"]), permutation)
             delays = tuple(cyclic_permutation(link, permutation) for link in term["links_for_delay"])
             delay_s = sum(arm_s_by_link[link] for link in delays)
-            phase = np.exp(-2j * np.pi * freqs * delay_s)
+            phase = np.exp(2j * np.pi * freqs * delay_s)
             channel += float(term["sign"]) * y_links_f[link_to_index[base]] * phase
         channels.append(channel)
     return channels[0], channels[1], channels[2]

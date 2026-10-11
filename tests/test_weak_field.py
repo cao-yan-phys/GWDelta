@@ -39,7 +39,7 @@ def static_orbits(
 
 
 class PlaneTensorField:
-    phasor_sign = 1
+    phasor_sign = -1
 
     def __init__(self, frequency_hz: float, propagation, tensor) -> None:
         self.angular_frequency = 2.0 * np.pi * float(frequency_hz)
@@ -49,7 +49,7 @@ class PlaneTensorField:
     def complex_amplitude(self, x_m) -> MetricValues:
         x = np.asarray(x_m)
         phase = np.exp(
-            -1j
+            1j
             * self.angular_frequency
             * np.einsum("...i,i->...", x, self.propagation)
             / C_SI
@@ -63,7 +63,7 @@ class PlaneTensorField:
 
     def metric(self, t_s, x_m) -> MetricValues:
         amplitude = self.complex_amplitude(x_m)
-        phase = np.exp(1j * self.angular_frequency * np.asarray(t_s))
+        phase = np.exp(-1j * self.angular_frequency * np.asarray(t_s))
         return MetricValues(
             psi=np.real(amplitude.psi * phase),
             xi=np.real(amplitude.xi * phase[..., np.newaxis]),
@@ -73,9 +73,9 @@ class PlaneTensorField:
     def time_derivative(self, t_s, x_m) -> MetricValues:
         amplitude = self.complex_amplitude(x_m)
         phase = (
-            1j
+            -1j
             * self.angular_frequency
-            * np.exp(1j * self.angular_frequency * np.asarray(t_s))
+            * np.exp(-1j * self.angular_frequency * np.asarray(t_s))
         )
         return MetricValues(
             psi=np.real(amplitude.psi * phase),

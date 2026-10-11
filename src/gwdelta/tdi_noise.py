@@ -117,7 +117,7 @@ def frozen_tdi2_light_times_from_positions(positions_m: np.ndarray) -> dict[tupl
 
 def _delay_phases(frequency_hz: np.ndarray, light_times_s: Mapping[tuple[int, int], float]) -> np.ndarray:
     light_times = np.asarray([light_times_s[link] for link in _LINKS], dtype=float)
-    return np.exp(-2j * np.pi * frequency_hz[:, np.newaxis] * light_times[np.newaxis, :])
+    return np.exp(2j * np.pi * frequency_hz[:, np.newaxis] * light_times[np.newaxis, :])
 
 
 def _cleaned_link_map(delay_phases: np.ndarray) -> np.ndarray:
@@ -145,7 +145,7 @@ def _xyz_coefficients(
                 for link in term["links_for_delay"]
             )
             delay_s = sum(light_times_s[link] for link in delayed_links)
-            phase = np.exp(-2j * np.pi * frequency_hz * delay_s)
+            phase = np.exp(2j * np.pi * frequency_hz * delay_s)
             coefficients[:, channel, _LINK_INDEX[base_link]] += float(term["sign"]) * phase
     return coefficients
 

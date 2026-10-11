@@ -45,6 +45,7 @@ def preconfigure_cuda_environment() -> None:
 
 preconfigure_cuda_environment()
 
+from gwdelta.fourier import rfft
 from gwdelta import (  # noqa: E402
     FastLISAResponseTDI,
     ensure_cuda_dll_directories,
@@ -570,13 +571,13 @@ def compute_spectrum(values, dt: float, alpha: float):
         if isinstance(values, cp.ndarray):
             window = cp.asarray(tukey_window(int(values.size), alpha), dtype=cp.float64)
             freqs = cp.asarray(np.fft.rfftfreq(int(values.size), d=dt))
-            spectrum = dt * cp.fft.rfft(values * window)
+            spectrum = dt * rfft(values * window)
             return cp.asnumpy(freqs), cp.asnumpy(cp.abs(spectrum))
     except Exception:
         pass
     arr = np.asarray(values, dtype=float)
     freqs = np.fft.rfftfreq(len(arr), d=dt)
-    spectrum = dt * np.fft.rfft(arr * tukey_window(len(arr), alpha))
+    spectrum = dt * rfft(arr * tukey_window(len(arr), alpha))
     return freqs, np.abs(spectrum)
 
 

@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 os.environ.setdefault("NUMBA_CUDA_USE_NVIDIA_BINDING", "1")
 
+from gwdelta.fourier import rfft
 from gwdelta import (  # noqa: E402
     FastLISAResponseTDI,
     WeakFieldLinkResponse,
@@ -226,7 +227,7 @@ def channel_spectra(
         values = np.asarray(channels[channel], dtype=float)
         if values.shape != time_s.shape or not np.all(np.isfinite(values)):
             raise ValueError(f"{channel} must be a finite array matching the time grid")
-        spectra[channel] = dt_s * np.fft.rfft(values)
+        spectra[channel] = dt_s * rfft(values)
     return frequency_hz, spectra
 
 
@@ -263,7 +264,7 @@ def compute_ae_snr(
         "snr2_A": snr2["A"],
         "snr2_E": snr2["E"],
         "df_hz": df_hz,
-        "fft_convention": "dt * rfft, rectangular observation, no window",
+        "fft_convention": "forward exp(+2 pi i f t), dt * rfft, rectangular observation, no window",
         "psd_convention": "one-sided equal-arm LISA second-generation S_A=S_E=S_EA",
         "noise_scope": "instrumental noise only; no Galactic confusion foreground",
     }

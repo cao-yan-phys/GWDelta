@@ -12,6 +12,8 @@ Besides plane gravitational waves, GWDelta can also calculate TDI signals from g
 
 `gwdelta.precise_tdi.compute_tdi2_ae()` computes the second-generation $A,E$ channels from six supplied one-way link time series. It is slower than the GPU routine, but evaluates the nested TDI delays independently, avoiding an interpolation residual that can be comparable to exceptionally weak signals.
 
+The adopted Fourier convention is $\widetilde X(f)=\int X(t)e^{2\pi ift}dt$. Below we use $c=\hbar=G=1$.
+
 ## Example 1
 
 The example below compares three Taiji response calculations for a precessing quasi-circular SMBHB waveform generated with `SEOBNRv5PHM` (including null displacement memory from all $l=2$ modes computed perturbatively):
@@ -262,9 +264,46 @@ $$
 
 Following [Kopeikin and Schäfer (1999)](https://arxiv.org/abs/gr-qc/9902030), the photon-propagation term is evaluated analytically and is exact in $\beta$.
 
+## Dark Radiation Field Signals
+
+The worldline action of a point particle with mass $m_\text{p}$, scalar charge $q_\phi$, and vector charge $q_A$ is given by
+
+$$
+S=\int (-m_\text{p}+q_\phi\phi)\,d\tau+ \int q_A A_a dX^a, \label{coupling}
+$$
+
+where $\tau$ denotes the proper time. The acceleration of such a point particle induced by weak scalar and vector waves, in the nonrelativistic approximation, is
+
+$$
+\delta\dot{\mathbf V}
+=\frac{q_\phi}{m_{\mathrm p}}\nabla\phi
+-\frac{q_A}{m_{\mathrm p}}\left(\nabla A^0+\partial_t\mathbf A\right),
+$$
+
+where $A^\mu=(A^0,\mathbf A)$, and we neglect terms dependent on the test mass velocity.
+
+This module computes the response to a scalar or vector plane wave. The input spectra are $\widetilde X(f)$, where $X=(q_\phi/m_{\mathrm p})\phi$ or $(q_A/m_{\mathrm p})\mathbf A$, with $A^0$ determined by the Lorenz condition. The fields in the time domain are given by
+
+$$
+\begin{aligned}
+X(t,\mathbf x)&=2\,\mathrm{Re}\int_{f_m}^{\infty}
+\widetilde X(f)e^{-2\pi if[t-v_g(f)\hat{\mathbf n}\cdot\mathbf x]}df,\\
+v_g(f)&=\sqrt{1-(f_m/f)^2}.
+\end{aligned}
+$$
+
+Here $\hat{\mathbf n}$ is the propagation direction and $f_m=\frac{m}{2\pi}$ is the Compton frequency of the scalar or vector field with mass $m$. The leading one-way frequency shift due to the endpoint velocity perturbations is
+
+$$
+y_{i\leftarrow j}(t)=-\hat{\mathbf k}\cdot
+\left[\delta\mathbf V_i(t)-\delta\mathbf V_j(t-L_{ij})\right].
+$$
+
+Here $\hat{\mathbf k}$ points from emitter $j$ to receiver $i$, and $L_{ij}$ is the light-travel time. This is implemented in `bosonic_field_response`.
+
 ## Plane-GW Polarizations
 
-For a null plane-wave spatial metric perturbation (in the synchronous gauge) $h_{ij}=\sum_A h_A e^A_{ij}$, `lam` and `beta` are respectively the ecliptic longitude and latitude of the source direction $-\hat{\mathbf k}$ in the SSB frame. `sky_basis(lam, beta)` returns the right-handed orthonormal triad $(\hat{\mathbf k},\mathbf a,\mathbf b)$. `polarization_tensors(lam, beta)` constructs the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884):
+For a null plane wave in synchronous gauge, $h_{ij}=\sum_A h_A e^A_{ij}$. With a right-handed orthonormal triad $(\hat{\mathbf k},\mathbf a,\mathbf b)$, where $\hat{\mathbf k}$ is the propagation direction, the six polarization tensors in the $E(2)$ classification of [Eardley et al. (1973)](https://doi.org/10.1103/PhysRevLett.30.884) are
 
 $$
 \begin{aligned}
@@ -277,7 +316,7 @@ e^{b} &= \mathbf a\otimes\mathbf a+\mathbf b\otimes\mathbf b,
 \end{aligned}
 $$
 
-They satisfy $e^A_{ij} e^B_{ij}=2\delta^{AB}$. In the static equal-arm approximation, `link_fd_polarization_response()` returns the six one-link frequency-domain response functions $R^A_{ij}(f)$. Pass a nonempty mapping of spectra, keyed by `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`, to `StaticTaijiFDResponse.xyz_polarizations()`, `.aet_polarizations()`, or `.ae_polarizations()` to obtain the corresponding response. For a prescribed orbit, `FastLISAResponseTDI.compute_polarizations()` takes a mapping of sampled time-domain strains under one or more of the six keys above, constructs the associated tensors internally, and returns the TDI response. The `source_time_s` grid must cover all retarded SSB times evaluated along the links.
+They satisfy $e^A_{ij} e^B_{ij}=2\delta^{AB}$. `sky_basis(lam, beta)` and `polarization_tensors(lam, beta)` return the triad and tensors, respectively; `lam` and `beta` are the ecliptic longitude and latitude of the source direction $-\hat{\mathbf k}$ in the SSB frame. In the static equal-arm approximation, `link_fd_polarization_response()` returns the six one-link frequency-domain response functions $R^A_{ij}(f)$. Pass a nonempty mapping of spectra, keyed by `plus`, `cross`, `vector_x`, `vector_y`, `breathing`, and `longitudinal`, to `StaticTaijiFDResponse.xyz_polarizations()`, `.aet_polarizations()`, or `.ae_polarizations()` to obtain the corresponding response. For a prescribed orbit, `FastLISAResponseTDI.compute_polarizations()` takes a mapping of sampled time-domain strains under one or more of the six keys above, constructs the associated tensors internally, and returns the TDI response. The `source_time_s` grid must cover all retarded SSB times evaluated along the links.
 
 ## Orbit Models and Data Sources
 

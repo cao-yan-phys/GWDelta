@@ -91,7 +91,7 @@ class PlaneWavePolarizationFieldTests(unittest.TestCase):
             beta=self.beta,
             positions_m=self.positions,
         )
-        phase = np.exp(1j * self.angular_frequency * self.response_time)
+        phase = np.exp(-1j * self.angular_frequency * self.response_time)
         for name, response in expected.items():
             actual = engine.compute(self.response_time, self._field(name)).as_numpy()[
                 "direct"

@@ -44,6 +44,7 @@ def preconfigure_cuda_environment() -> None:
 
 preconfigure_cuda_environment()
 
+from gwdelta.fourier import rfft, irfft
 from gwdelta import (  # noqa: E402
     FastLISAResponseTDI,
     StaticTaijiFDResponse,
@@ -193,15 +194,15 @@ def spectrum_from_time_derivative(
     derivative = np.gradient(values, dt, edge_order=2)
     if derivative_window is not None:
         derivative = derivative * np.asarray(derivative_window, dtype=float)
-    derivative_f = dt * np.fft.rfft(derivative)
+    derivative_f = dt * rfft(derivative)
     spectrum = np.zeros_like(derivative_f)
     omega = 2.0 * np.pi * freqs
-    spectrum[1:] = derivative_f[1:] / (1j * omega[1:])
+    spectrum[1:] = derivative_f[1:] / (-1j * omega[1:])
     return spectrum
 
 
 def spectrum_from_windowed_signal(values: np.ndarray, dt: float, window: np.ndarray) -> np.ndarray:
-    return dt * np.fft.rfft(np.asarray(window, dtype=float) * np.asarray(values, dtype=float))
+    return dt * rfft(np.asarray(window, dtype=float) * np.asarray(values, dtype=float))
 
 
 def smooth_highpass(freqs: np.ndarray, f_stop: float, f_pass: float) -> np.ndarray:
@@ -365,10 +366,10 @@ def compare_spectra(
         beta=args.beta,
         tdi="2nd generation",
     )
-    a_fd_time = np.fft.irfft(a_fd_full / dt, n=n)
-    e_fd_time = np.fft.irfft(e_fd_full / dt, n=n)
-    a_fd_no_memory_time = np.fft.irfft(a_fd_no_memory_full / dt, n=n)
-    e_fd_no_memory_time = np.fft.irfft(e_fd_no_memory_full / dt, n=n)
+    a_fd_time = irfft(a_fd_full / dt, n=n)
+    e_fd_time = irfft(e_fd_full / dt, n=n)
+    a_fd_no_memory_time = irfft(a_fd_no_memory_full / dt, n=n)
+    e_fd_no_memory_time = irfft(e_fd_no_memory_full / dt, n=n)
 
     guard = (
         int(round(args.comparison_guard_s / dt))
@@ -429,21 +430,22 @@ def compare_spectra(
 
     summary = {
         "n_fft": int(n),
+        "fourier_convention": "forward exp(+2 pi i f t); inverse exp(-2 pi i f t)",
         "dt_s": dt,
         "df_hz": float(freqs[1] - freqs[0]) if len(freqs) > 1 else 0.0,
         "mask_bins": int(np.count_nonzero(mask)),
         "compare_fmin_hz": float(args.compare_fmin),
         "compare_fmax_hz": float(args.compare_fmax),
         "source_gate_tukey_alpha": None if args.source_gate_alpha < 0.0 else float(args.source_gate_alpha),
-        "memory_spectrum_method": "FFT(time derivative)/(i 2 pi f), f=0 set to 0",
+        "memory_spectrum_method": "FFT(time derivative)/(-i 2 pi f), f=0 set to 0",
         "comparison_guard_s": float(guard * dt),
         "comparison_guard_samples": int(guard),
         "comparison_window_tukey_alpha": float(args.fft_window_alpha),
         "tdi_spectrum_method": "FFT(windowed time-domain A/E)",
-        "source_memory_spectrum_method": "FFT(time derivative)/(i 2 pi f), f=0 set to 0",
+        "source_memory_spectrum_method": "FFT(time derivative)/(-i 2 pi f), f=0 set to 0",
         "analytic_memory_only_spectrum": (
             "static frequency-domain response applied to memory-only source spectra "
-            "recovered from FFT(dh/dt)/(i 2 pi f)"
+            "recovered from FFT(dh/dt)/(-i 2 pi f)"
         ),
         "oscillatory_leakage_cleanup": cleanup_summary,
         "fd_vs_td_reference": "realistic Taiji orbit TD",
@@ -708,7 +710,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "source_gate_edge_samples": 0 if args.source_gate_alpha < 0.0 else int(edge),
             "source_gate_tukey_alpha": None if args.source_gate_alpha < 0.0 else float(args.source_gate_alpha),
             "no_memory_reference": "realistic Taiji response to h_plus_osc and h_cross_osc",
-            "frequency_domain_memory_treatment": "spectra are recovered from FFT(time derivative)/(i 2 pi f)",
+            "frequency_domain_memory_treatment": "spectra are recovered from FFT(time derivative)/(-i 2 pi f)",
             "plotted_detector_spectra": (
                 "raw normally windowed A/E spectra, an explicit leakage-suppressed "
                 "display spectrum, and an analytic memory-only response curve, all "
