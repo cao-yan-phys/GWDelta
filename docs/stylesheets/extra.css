@@ -30,10 +30,12 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: url('../assets/pond-ripples.png') center / cover no-repeat;
-  -webkit-mask-image: linear-gradient(to right, transparent, black 14%, black 86%, transparent), linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+  background: url('../assets/ripples.gif') center / cover no-repeat;
+  --fade-x: linear-gradient(to right, transparent, #00000002 1.4%, #0000000f 2.8%, #0000002a 4.2%, #00000051 5.6%, #00000080 7%, #000000ae 8.4%, #000000d5 9.8%, #000000f0 11.2%, #000000fd 12.6%, black 14%, black 86%, #000000fd 87.4%, #000000f0 88.8%, #000000d5 90.2%, #000000ae 91.6%, #00000080 93%, #00000051 94.4%, #0000002a 95.8%, #0000000f 97.2%, #00000002 98.6%, transparent);
+  --fade-y: linear-gradient(to bottom, transparent, #00000002 2%, #0000000f 4%, #0000002a 6%, #00000051 8%, #00000080 10%, #000000ae 12%, #000000d5 14%, #000000f0 16%, #000000fd 18%, black 20%, black 80%, #000000fd 82%, #000000f0 84%, #000000d5 86%, #000000ae 88%, #00000080 90%, #00000051 92%, #0000002a 94%, #0000000f 96%, #00000002 98%, transparent);
+  -webkit-mask-image: var(--fade-x), var(--fade-y);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent, black 14%, black 86%, transparent), linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+  mask-image: var(--fade-x), var(--fade-y);
   mask-composite: intersect;
 }
 
@@ -41,6 +43,12 @@
   width: 240px;
   max-width: 55%;
   height: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gwdelta-masthead::before {
+    background-image: none;
+  }
 }
 
 .constellation-orbit-view {
