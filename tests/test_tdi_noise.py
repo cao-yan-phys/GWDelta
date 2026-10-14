@@ -16,6 +16,46 @@ from gwdelta import (
 
 
 class FrozenTDI2NoiseTests(unittest.TestCase):
+    def test_bbo_fractional_frequency_units_and_normalization(self) -> None:
+        frequency = np.geomspace(1.0e-4, 10.0, 101)
+        arm_m = 5.0e7
+        omega = 2.0 * np.pi * frequency
+        conversion = (3.0 * arm_m * omega / C_SI) ** 2
+        phase_oms = 2.0e-34 / (3.0 * arm_m) ** 2
+        phase_tm = 9.0e-34 / (omega**4 * (3.0 * arm_m) ** 2)
+        tm_psd, oms_psd = one_way_noise_psd(frequency, "bbo")
+        np.testing.assert_allclose(oms_psd, phase_oms * conversion, rtol=5.0e-15)
+        np.testing.assert_allclose(tm_psd, phase_tm * conversion, rtol=5.0e-15)
+        np.testing.assert_allclose(oms_psd / omega**2, 2.0e-34 / C_SI**2, rtol=5.0e-15)
+        np.testing.assert_allclose(tm_psd * omega**2, 9.0e-34 / C_SI**2, rtol=5.0e-15)
+        spectrum = (1.0 + 0.2j) / (1.0 + frequency**2)
+        shifted_spectrum = -1j * omega * 3.0 * arm_m / C_SI * spectrum
+        old_psd = phase_oms + phase_tm
+        new_psd = oms_psd + tm_psd
+        np.testing.assert_allclose(
+            np.abs(shifted_spectrum)**2 / new_psd,
+            np.abs(spectrum)**2 / old_psd,
+            rtol=5.0e-15,
+        )
+
+    def test_bbo_equal_arm_covariance_and_generation(self) -> None:
+        frequency = np.geomspace(1.0e-3, 1.0, 31)
+        arm_m = 5.0e7
+        first = equal_arm_aet_noise_psd(frequency, "bbo", channels="AET", tdi_generation="first")
+        second = equal_arm_aet_noise_psd(frequency, "bbo", channels="AET", tdi_generation="second")
+        factor = 4.0 * np.sin(4.0 * np.pi * frequency * arm_m / C_SI)**2
+        np.testing.assert_allclose(second, first * factor, rtol=5.0e-15)
+        covariance = frozen_tdi2_detector_noise_covariance(
+            frequency, self._equal_light_times(arm_m), "bbo", basis="AET"
+        )
+        scale = np.max(second, axis=0)
+        np.testing.assert_allclose(
+            np.diagonal(covariance, axis1=1, axis2=2).T.real / scale,
+            second / scale,
+            rtol=1.0e-9,
+            atol=3.0e-12,
+        )
+
     @staticmethod
     def _equal_light_times(arm_m: float = 2.5e9) -> dict[tuple[int, int], float]:
         light_time = arm_m / C_SI

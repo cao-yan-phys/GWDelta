@@ -249,8 +249,8 @@ def make_ak_phase_coefficients(params: NotebookParameters, phase_model: str) -> 
     )
     x0 = float(pn_params.x0)
     e0 = float(pn_params.e_t0)
-    dx_dt = float(pn_dxdt_b1(x0, e0, params.nu, x0_log=x0))
-    de_dt = float(pn_dedt_b4(x0, e0, params.nu, x0_log=x0))
+    dx_dt = float(pn_dxdt_b1(x0, e0, params.nu, x0_log=x0)) / params.total_mass
+    de_dt = float(pn_dedt_b4(x0, e0, params.nu, x0_log=x0)) / params.total_mass
 
     def radial_mean_motion(x, e_t):
         return _pn_radial_mean_motion(float(x), float(e_t), params.total_mass)
@@ -258,8 +258,8 @@ def make_ak_phase_coefficients(params: NotebookParameters, phase_model: str) -> 
     def radial_mean_motion_dot(x, e_t):
         x_value = float(x)
         e_value = float(e_t)
-        dx_value = float(pn_dxdt_b1(x_value, e_value, params.nu, x0_log=x0))
-        de_value = float(pn_dedt_b4(x_value, e_value, params.nu, x0_log=x0))
+        dx_value = float(pn_dxdt_b1(x_value, e_value, params.nu, x0_log=x0)) / params.total_mass
+        de_value = float(pn_dedt_b4(x_value, e_value, params.nu, x0_log=x0)) / params.total_mass
         return _pn_directional_derivative(radial_mean_motion, x_value, e_value, dx_value, de_value)
 
     def precession_rate(x, e_t):

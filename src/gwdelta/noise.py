@@ -125,9 +125,9 @@ def one_way_noise_psd(
 
     fp = f[positive]
     if model.bbo_stage1:
-        denom = (3.0 * model.arm_length_m) ** 2
-        s_oms[positive] = 2.0e-34 / denom
-        s_acc[positive] = 9.0e-34 / ((2.0 * np.pi * fp) ** 4 * denom)
+        omega = 2.0 * np.pi * fp
+        s_oms[positive] = 2.0e-34 * (omega / C_SI) ** 2
+        s_acc[positive] = 9.0e-34 / (omega * C_SI) ** 2
         return (s_acc[0], s_oms[0]) if scalar_input else (s_acc, s_oms)
 
     if model.s_acc_m_s2_per_sqrt_hz is None or model.s_oms_m_per_sqrt_hz is None:
